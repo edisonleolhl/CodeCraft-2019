@@ -9,11 +9,11 @@ import re
 # print(os.path.relpath('.'))
 # # .
 
-logging.basicConfig(level=logging.DEBUG,
-                    filename='logs/CodeCraft-2019.log',
-                    format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    filemode='a')
+# logging.basicConfig(level=logging.DEBUG,
+#                     filename='logs/CodeCraft-2019.log',
+#                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
+#                     datefmt='%Y-%m-%d %H:%M:%S',
+#                     filemode='a')
 
 
 def main():
@@ -30,11 +30,18 @@ def main():
     logging.info("road_path is %s" % (road_path))
     logging.info("cross_path is %s" % (cross_path))
     logging.info("answer_path is %s" % (answer_path))
-    readfiles(car_path, road_path, cross_path)
+    car_list, road_list, cross_list = readFiles(car_path, road_path, cross_path)
+    map = initMap(road_list, cross_list)
 
 # to read input file
-def readfiles(car_path, road_path, cross_path):
-    cars_list = []
+# output:
+# road_list = [['5000', '10', '5', '1', '1', '2', '1'],
+#               ...
+#               ['5059', '10', '5', '1', '35', '36', '1']]
+# car_list = [[...], ..., [...]]
+# cross_list = [[...], ..., [...]]
+def readFiles(car_path, road_path, cross_path):
+    car_list = []
     road_list = []
     cross_list = []
     with open(car_path, 'r') as cars_file:
@@ -53,7 +60,7 @@ def readfiles(car_path, road_path, cross_path):
 
             # above three lines can be simplified as below
             car_line = car_line.replace(' ', '').replace('(', '').replace(')', '').strip().split(',')
-            cars_list.append(car_line)
+            car_list.append(car_line)
 
     with open(road_path, 'r') as road_file:
         for road_line in road_file.readlines():
@@ -91,12 +98,29 @@ def readfiles(car_path, road_path, cross_path):
             cross_line = cross_line.replace(' ', '').replace('(', '').replace(')', '').strip().split(',')
             cross_list.append(cross_line)
 
-    # print(cars_list)
+    # print(car_list)
     # print(road_list)
     # print(cross_list)
-    return cars_list, road_list, cross_list
+    return car_list, road_list, cross_list
+
 
 # process
+def initMap(road_list, cross_list):
+    # init empty graph
+    map = []
+    for i in range(len(cross_list)):
+        temp = []
+        for j in range(len(cross_list)):
+            temp.append('M')
+        map.append(temp)
+
+    for road in road_list:
+        map[int(road[4])-1][int(road[5])-1] = (int(road[0]), int(road[1]), int(road[2]), int(road[3]))
+        # duplex channel, indicating the correspnding reverse edge in adjacent matrix graph
+        if road[-1] == '1':
+            map[int(road[5]) - 1][int(road[4]) - 1] = (int(road[0]), int(road[1]), int(road[2]), int(road[3]))
+    print(map)
+    return map
 # to write output file
 
 
