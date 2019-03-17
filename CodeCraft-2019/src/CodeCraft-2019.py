@@ -205,7 +205,9 @@ def main():
     # print(graph)
     # all_shortest_paths = initAllShortestPaths(graph)
     # print(GraphAlgo.shortest_path(graph, 1, 1))
-    findRouteForCar(graph, car_list)
+    route_list = findRouteForCar(graph, car_list)
+    writeFiles(route_list, car_list, answer_path)
+
 # to read input file
 # output:
 # road_list = [['5000', '10', '5', '1', '1', '2', '1'],
@@ -325,6 +327,17 @@ def findRouteForCar(graph, car_list):
 
 
 # to write output file
+def writeFiles(route_list, car_list, answer_path):
+    with open(answer_path, 'w') as answer_file:
+        for i in range(len(car_list)):
+            route = route_list[i]
+            route = str(route).strip('[').strip(']')
+            car_id = car_list[i][0]
+            car_depart_time = car_list[i][-1]
+            answer_file.write('(' + str(car_id) + ', ' +
+                              str(car_depart_time) + ', ' +
+                              str(route) +
+                              ')\n')
 
 if __name__ == "__main__":
     main()
