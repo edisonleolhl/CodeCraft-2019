@@ -206,6 +206,10 @@ def main():
     # all_shortest_paths = initAllShortestPaths(graph)
     # print(GraphAlgo.shortest_path(graph, 1, 1))
     route_list = findRouteForCar(graph, car_list)
+    # for node in graph.node_list():
+    #     print('---' + str(node) + '---')
+    #     print(graph.inc_degree(node))
+    #     print(graph.out_degree(node))
     writeFiles(route_list, car_list, answer_path)
 
 # to read input file
@@ -333,7 +337,18 @@ def writeFiles(route_list, car_list, answer_path):
             route = route_list[i]
             route = str(route).strip('[').strip(']')
             car_id = car_list[i][0]
-            car_depart_time = car_list[i][-1]
+            plan_time = car_list[i][-1]
+            speed = car_list[i][-2]
+            car_depart_time = plan_time
+            if speed == 2:
+                car_depart_time = plan_time + 12
+            elif speed == 4:
+                car_depart_time = plan_time + 8
+            elif speed == 6:
+                car_depart_time = plan_time + 4
+            elif speed == 8:
+                car_depart_time = plan_time
+            car_depart_time += i//13
             answer_file.write('(' + str(car_id) + ', ' +
                               str(car_depart_time) + ', ' +
                               str(route) +
