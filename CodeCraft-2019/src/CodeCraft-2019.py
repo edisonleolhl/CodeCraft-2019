@@ -56,9 +56,9 @@ class Algorithms(object):
                 break
 
             for w in graph.out_nbrs(v):
-                # edge_id = graph.edge_by_node(v, w)
-                # vwLength = D[v] + graph.edge_data(edge_id)
-                vwLength = D[v] + 1
+                edge_id = graph.edge_by_node(v, w)
+                vwLength = D[v] + graph.edge_data(edge_id)[1]/graph.edge_data(edge_id)[2]/graph.edge_data(edge_id)[3]
+                # vwLength = D[v] + 1
                 if w in D:
                     if vwLength < D[w]:
                         raise GraphError(
