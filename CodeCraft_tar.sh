@@ -12,4 +12,4 @@ then
 fi
 
 rm -f CodeCraft_code.tar.gz
-tar -zcPf CodeCraft_code.tar.gz *
+tar -zcPf CodeCraft_code.tar.gz * --exclude=venv
