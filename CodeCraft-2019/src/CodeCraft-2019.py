@@ -3,6 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
+from simulator import *
 
 logging.basicConfig(level=logging.DEBUG,
                     filename='../logs/CodeCraft-2019.log',
@@ -30,6 +31,7 @@ def main():
     initMap(graph, road_list, cross_list)
     route_list = findRouteForCar(graph, car_list)
     writeFiles(route_list, car_list, answer_path)
+
 
 # to read input file
 # output:

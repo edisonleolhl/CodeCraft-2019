@@ -1,7 +1,6 @@
 #-*- encoding=utf8 -*-
 import sys
 import numpy as np
-import cv2 as cv
 
 np.random.seed(951105)
 
@@ -589,8 +588,6 @@ class simulation(object):
                 ROADDICT[roadId].setBucket(crossId)
             CROSSDICT[crossId].outOfCarport()
     def simulate(self):
-        visualize = visualization()
-        visualize.crossLocGen()
         while True:
             self.step()
             #visualize.drawMap()
@@ -600,167 +597,6 @@ class simulation(object):
             if self.dead:
                 break
             TIME[0] +=1
-
-class visualization(object):
-    def __init__(self):
-        self.maxX,self.maxY = 0,0
-        self.savePath = '../../../simulatePictures'
-        # ** cross param **#
-        self.crossRadius = 14
-        self.crossDistance = 150
-        self.crossColor = [25,200,0]
-        # ** road param **#
-        self.roadColor = [0,0,0] #black
-        self.roadLineType = 4
-        self.channelWidth = 5
-        self.channelDistance = 3
-        self.lineWidth = 2
-        self.time = 0
-    #
-    # cross location gen
-    #
-    def crossLocGen(self):
-        #**** relative location ****#
-        # denote the first cross as the origin of coordinates
-        for crossId in CROSSNAMESPACE:
-            CROSSDICT[crossId].setDone(False)
-        crossList = [CROSSNAMESPACE[0]]
-        minX,minY = 0,0
-        while(crossList.__len__()>0):
-            nextCrossList = []
-            for crossId in crossList:
-                presentX,presntY = CROSSDICT[crossId].__loc__()
-                validRoad = CROSSDICT[crossId].__validRoad__()
-                for roadId in validRoad:
-                    #next cross id
-                    nextCrossId = ROADDICT[roadId].__from__() if ROADDICT[roadId].__from__() != crossId \
-                                                            else ROADDICT[roadId].__to__()
-                    # if next cross is visited
-                    if not CROSSDICT[nextCrossId].__done__():
-                        # visit sets true
-                        CROSSDICT[nextCrossId].setDone(True)
-                        # relative location of nextcross
-                        nextX,nextY = self.crossRelativeLoc(presentX,presntY,crossId,roadId)
-                        # update location
-                        CROSSDICT[nextCrossId].setLoc(nextX,nextY)
-                        minX,minY,self.maxX,self.maxY=\
-                                    min(nextX,minX),min(nextY,minY),max(nextX,self.maxX),max(nextY,self.maxY)
-                        nextCrossList.append(nextCrossId)
-            crossList = nextCrossList
-        self.maxX,self.maxY = (self.maxX-minX+2)*self.crossDistance,(self.maxY-minY+2)*self.crossDistance
-        for crossId in CROSSNAMESPACE:
-            x,y = CROSSDICT[crossId].__loc__()
-            CROSSDICT[crossId].setLoc(x-minX,y-minY)
-            CROSSDICT[crossId].setMapLoc((x - minX+1)*self.crossDistance, (y - minY+1)*self.crossDistance)
-    def crossRelativeLoc(self,x,y,crossId,roadId):
-        roadDirection = CROSSDICT[crossId].roadDirection(roadId)
-        if roadDirection==0:
-            return x,y-1
-        elif roadDirection==1:
-            return x+1,y
-        elif roadDirection==2:
-            return x,y+1
-        elif roadDirection==3:
-            return x-1,y
-        else:
-            print("Cross(%d) don't interact with road(%d)"%(self.id_,roadId))
-    #
-    # draw functions
-    #
-    def drawMap(self):
-        img = np.ones((self.maxX,self.maxY,3),np.uint8)*255
-        #draw road
-        for roadId in ROADNAMESPACE:
-            self.plotRoad(roadId,img)
-        # draw cross
-        for crossId in CROSSNAMESPACE:
-            self.plotCross(crossId,img)
-        # plot info
-        self.plotInfo(img)
-        cv.imwrite(self.savePath+'/%d.jpg'%TIME[0],img)
-    def plotCross(self,crossId,img):
-        x, y = CROSSDICT[crossId].__mapLoc__()
-        cv.circle(img,(x,y),self.crossRadius,color=self.crossColor,thickness=-1,lineType=-1)
-        if crossId>=10:
-            xx, yy = int(x - 4*self.crossRadius/5), int(y + self.crossRadius / 2)
-        else:
-            xx, yy = int(x- self.crossRadius/2), int(y + self.crossRadius / 2)
-        cv.putText(img,str(crossId),(xx,yy ),cv.FONT_HERSHEY_SIMPLEX,0.6,[0,0,255],2)
-    def plotRoad(self,roadId,img):
-        # get road info
-        road = ROADDICT[roadId]
-        fromX, fromY = CROSSDICT[road.__from__()].__mapLoc__()
-        toX, toY = CROSSDICT[road.__to__()].__mapLoc__()
-        # plot line
-        cv.line(img,(fromX, fromY),(toX, toY),color=self.roadColor,thickness=2)
-        # plot bucket
-        self.drawBucket(road,'forward',img)
-        if road.__isDuplex__():
-            self.drawBucket(road,'backward',img)
-    def drawBucket(self,road,lane,img):
-        bucket = road.__forwardBucket__() if lane !='backward' else road.__backwardBucket__()
-        length = road.__length__()
-        channel = road.__channel__()
-        fromX, fromY = CROSSDICT[road.__from__()].__mapLoc__()
-        toX, toY = CROSSDICT[road.__to__()].__mapLoc__()
-        XY, intervalXY, rectangleSize, channel2XY, length2XY = self.bucketDrawInitial(fromX,fromY,toX,toY,lane,length)
-        for i in range(length):
-            for j in range(channel):
-                xRD,yRD = int(XY[0]+rectangleSize[0]),int(XY[1]+rectangleSize[1])
-                if bucket[i][j] is  None:
-                    cv.rectangle(img,(int(XY[0]),int(XY[1])),(xRD,yRD),(0,0,0),1)
-                else:
-                    color = CARDICT[bucket[i][j]].__carColor__()
-                    cv.rectangle(img, (int(XY[0]), int(XY[1])),(xRD, yRD),color=color,thickness=-1)
-                XY[channel2XY] = XY[channel2XY] + intervalXY[channel2XY]
-            XY[channel2XY] = XY[channel2XY] - intervalXY[channel2XY]*channel
-            XY[length2XY] = XY[length2XY] + intervalXY[length2XY]
-    def bucketDrawInitial(self,fromX,fromY,toX,toY,lane,length):
-        direction = self.bucketDirection(fromX,fromY,toX,toY,lane)
-        unitLength = (self.crossDistance - self.crossRadius * 4) / length
-        if lane=='backward':
-            toY=fromY
-            toX=fromX
-        if direction == 'north':
-            XY = [fromX + self.channelDistance,toY + self.crossRadius * 2]
-            intervalXY = self.channelDistance  + self.channelWidth , unitLength
-            rectangleSize = self.channelWidth , unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'south':
-            XY = [fromX - self.channelDistance - self.channelWidth,toY - self.crossRadius * 2 - unitLength]
-            intervalXY = -(self.channelDistance  + self.channelWidth ), -unitLength
-            rectangleSize = self.channelWidth , unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'east':
-            XY = [toX - self.crossRadius * 2 - unitLength,fromY + self.channelDistance]
-            intervalXY = -unitLength, self.channelDistance + self.channelWidth
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        elif direction == 'west':
-            XY = [toX + self.crossRadius * 2, fromY - self.channelDistance - self.channelWidth]
-            intervalXY = unitLength, -(self.channelDistance + self.channelWidth)
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        return XY,intervalXY,rectangleSize,channel2XY,length2XY
-    def bucketDirection(self,fromX,fromY,toX,toY,lane):
-        if fromY > toY:
-            direction = 'north' if lane=='forward' else 'south'
-        elif fromY < toY:
-            direction = 'south' if lane == 'forward' else 'north'
-        elif fromX < toX:
-            direction = 'east' if lane == 'forward' else 'west'
-        else:
-            direction = 'west' if lane == 'forward' else 'east'
-        return direction
-    def plotInfo(self,img):
-        for crossId in CROSSNAMESPACE:
-            cross = CROSSDICT[crossId]
-            x,y = cross.__mapLoc__()
-            cn,fn = cross.__carportCarNum__(),cross.__finishCarNum__()
-            cv.putText(img,"%d,%d"%(cn,fn),(int(x),int(y-1.1*self.crossRadius)),\
-                       cv.FONT_HERSHEY_SIMPLEX,0.4,[0,0,255],1)
-        cv.putText(img, "in the carport:%d,on the road:%d,end of the trip:%d" % (CARDISTRIBUTION[0],CARDISTRIBUTION[1],CARDISTRIBUTION[2]),(30,30), \
-                   cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 0, 255], 2)
 
 def takeSecond(elem):
     return elem[1]
