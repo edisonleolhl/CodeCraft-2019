@@ -1,4 +1,5 @@
 import logging
+import random
 import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
@@ -34,15 +35,21 @@ def main():
     carInfo = open(car_path, 'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    answerInfo = generateAnswer(route_list, car_list)
 
-    for i in range(2):
+
+    alternativeAns = []
+    alternativeTime = []
+    for i in range(20):
+        answerInfo = generateAnswer(route_list, car_list)
+        alternativeAns.append(answerInfo)
         simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
         time = simulate.simulate()
-        print('schedule time: %d' %time)
+        alternativeTime.append(time)
+        print('Current schedule time: %d' %time)
 
+    answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
     writeFiles(answerInfo, answer_path)
-
+    print('Final schedule time: %d' %min(alternativeTime))
 
 # to read input file
 # output:
@@ -123,11 +130,11 @@ def generateAnswer(route_list, car_list):
         speed = car_list[i][-2]
         car_depart_time = plan_time
         if speed == 2:
-            car_depart_time = plan_time + 12
+            car_depart_time = plan_time + 12 + int(random.random()*10)
         elif speed == 4:
-            car_depart_time = plan_time + 8
+            car_depart_time = plan_time + 8 + int(random.random()*10)
         elif speed == 6:
-            car_depart_time = plan_time + 4
+            car_depart_time = plan_time + 4 + int(random.random()*10)
         elif speed == 8:
             car_depart_time = plan_time
         car_depart_time += i // 13
