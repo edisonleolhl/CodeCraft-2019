@@ -554,16 +554,67 @@ class CROSS(object):
         return self.mapX,self.mapY
 
 class simulation(object):
-    def __init__(self):
+    def __init__(self, carInfo, roadInfo, crossInfo, answerInfo):
         self.dead = False
+        global CARDISTRIBUTION, CARNAMESPACE, ROADNAMESPACE, CROSSNAMESPACE, CROSSDICT, CARDICT, ROADDICT
+        CARDISTRIBUTION = [0, 0, 0]
+        CARNAMESPACE, ROADNAMESPACE, CROSSNAMESPACE = [], [], []
+        CROSSDICT, CARDICT, ROADDICT = {}, {}, {}
+        # ************************************* M A I N *******************************************#
+        # load .txt files
+        # carInfo = open(car_path, 'r').read().split('\n')[1:]
+        # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+        # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+        # answerInfo = open(answer_path, 'r').read().split('\n')
+        # *****************************Create NameSpace And Dictionary*****************************#
+        # create car objects
+        # line = (id,from,to,speed,planTime)
+        for line in carInfo:
+            id_, from_, to_, speed_, planTime_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            CARNAMESPACE.append(int(id_))
+            CARDICT[int(id_)] = CAR(int(id_), int(from_), int(to_), int(speed_), int(planTime_))
+        # create road objects
+        # line = (id,length,speed,channel,from,to,isDuplex)
+        for line in roadInfo:
+            id_, length_, speed_, channel_, from_, to_, isDuplex_ = line.replace(' ', '').replace('\t', '')[1:-1].split(
+                ',')
+            ROADNAMESPACE.append(int(id_))
+            ROADDICT[int(id_)] = ROAD(int(id_), int(length_), int(speed_), int(channel_), int(from_), int(to_),
+                                      int(isDuplex_))
+        # create cross objects
+        # line = (id,north,east,south,west)
+        for line in crossInfo:
+            id_, north_, east_, south_, west_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            CROSSNAMESPACE.append(int(id_))
+            CROSSDICT[int(id_)] = CROSS(int(id_), int(north_), int(east_), int(south_), int(west_))
+        # car route initialize
+        # line = (id,startTime,route)
+        count = 0
+        for i, line in enumerate(answerInfo):
+            if line.strip() == '':
+                break
+            line = line.strip()[1:-1].split(',')
+            carId = int(line[0])
+            planTime_ = int(line[1])
+            route = [int(roadId) for roadId in line[2:]]
+            CARDICT[carId].simulateInit(planTime_, route)
+            count += 1
+        print("There are %d cars' route preinstalled" % count)
+        CARDISTRIBUTION[0] = CARNAMESPACE.__len__()
+        # **** cross initialization ****#
+        for carId in CARNAMESPACE:
+            CROSSDICT[CARDICT[carId].__from__()].carportInitial(CARDICT[carId].__planTime__(), carId)
+        # ****Initialization ****#
+        CARNAMESPACE.sort()
+        CROSSNAMESPACE.sort()
     def step(self):
         print("time:%d"%TIME[0])
         for crossId in CROSSNAMESPACE:
             CROSSDICT[crossId].setDone(False)
-        print("pre-movement...")
+        # print("pre-movement...")
         for road in ROADNAMESPACE:
             ROADDICT[road].stepInit()
-        print("while loop...")
+        # print("while loop...")
         unfinishedCross = CROSSNAMESPACE
         while unfinishedCross.__len__() > 0:
             self.dead = True
@@ -574,14 +625,14 @@ class simulation(object):
                 if not cross.__done__():
                     nextCross.append(crossId)
                 if cross.__update__() or cross.__done__():
-                    if TIME[0] == 55:
-                        print(crossId,cross.__update__(),cross.__done__())
+                    # if TIME[0] == 55:
+                    #     print(crossId,cross.__update__(),cross.__done__())
                     self.dead = False
             unfinishedCross = nextCross
-            if TIME[0]==55:
-                print(unfinishedCross)
+            # if TIME[0]==55:
+            #     print(unfinishedCross)
             assert self.dead is False, print("dead lock in", unfinishedCross)
-        print("car pulling away from carport")
+        # print("car pulling away from carport")
         for i in range(CROSSNAMESPACE.__len__()):
             crossId = CROSSNAMESPACE[i]
             for roadId in CROSSDICT[crossId].__validRoad__():
@@ -592,8 +643,10 @@ class simulation(object):
             self.step()
             #visualize.drawMap()
             if CARDISTRIBUTION[2]==CARNAMESPACE.__len__():
-                print(CARDISTRIBUTION[2])
-                break
+                print('%d cars have been scheduled' %CARDISTRIBUTION[2])
+                time = TIME[0]
+                TIME[0] = 0
+                return time
             if self.dead:
                 break
             TIME[0] +=1

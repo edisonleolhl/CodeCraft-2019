@@ -32,6 +32,15 @@ def main():
     route_list = findRouteForCar(graph, car_list)
     writeFiles(route_list, car_list, answer_path)
 
+    carInfo = open(car_path, 'r').read().split('\n')[1:]
+    roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    answerInfo = open(answer_path, 'r').read().split('\n')
+
+    for i in range(2):
+        simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
+        time = simulate.simulate()
+        print('schedule time: %d' %time)
 
 # to read input file
 # output:
