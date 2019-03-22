@@ -5,11 +5,11 @@ from altgraph.Graph import Graph
 from Algorithms import Algorithms
 from simulator import *
 
-logging.basicConfig(level=logging.DEBUG,
-                    filename='../logs/CodeCraft-2019.log',
-                    format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    filemode='a')
+# logging.basicConfig(level=logging.DEBUG,
+#                     filename='../logs/CodeCraft-2019.log',
+#                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
+#                     datefmt='%Y-%m-%d %H:%M:%S',
+#                     filemode='a')
 
 def main():
     if len(sys.argv) != 5:
@@ -30,17 +30,19 @@ def main():
     graph = Graph()
     initMap(graph, road_list, cross_list)
     route_list = findRouteForCar(graph, car_list)
-    writeFiles(route_list, car_list, answer_path)
 
     carInfo = open(car_path, 'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    answerInfo = open(answer_path, 'r').read().split('\n')
+    answerInfo = generateAnswer(route_list, car_list)
 
     for i in range(2):
         simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
         time = simulate.simulate()
         print('schedule time: %d' %time)
+
+    writeFiles(answerInfo, answer_path)
+
 
 # to read input file
 # output:
@@ -110,29 +112,34 @@ def findRouteForCar(graph, car_list):
     return route_list
 
 
-# to write output file
-def writeFiles(route_list, car_list, answer_path):
-    with open(answer_path, 'w') as answer_file:
-        for i in range(len(car_list)):
-            route = route_list[i]
-            route = str(route).strip('[').strip(']')
-            car_id = car_list[i][0]
-            plan_time = car_list[i][-1]
-            speed = car_list[i][-2]
+# generate answerInfo
+def generateAnswer(route_list, car_list):
+    answerInfo = []
+    for i in range(len(car_list)):
+        route = route_list[i]
+        route = str(route).strip('[').strip(']')
+        car_id = car_list[i][0]
+        plan_time = car_list[i][-1]
+        speed = car_list[i][-2]
+        car_depart_time = plan_time
+        if speed == 2:
+            car_depart_time = plan_time + 12
+        elif speed == 4:
+            car_depart_time = plan_time + 8
+        elif speed == 6:
+            car_depart_time = plan_time + 4
+        elif speed == 8:
             car_depart_time = plan_time
-            if speed == 2:
-                car_depart_time = plan_time + 12
-            elif speed == 4:
-                car_depart_time = plan_time + 8
-            elif speed == 6:
-                car_depart_time = plan_time + 4
-            elif speed == 8:
-                car_depart_time = plan_time
-            car_depart_time += i//13
-            answer_file.write('(' + str(car_id) + ', ' +
-                              str(car_depart_time) + ', ' +
-                              str(route) +
-                              ')\n')
+        car_depart_time += i // 13
+        answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
+    return answerInfo
+
+
+# to write output file
+def writeFiles(answerInfo, answer_path):
+    with open(answer_path, 'w') as answer_file:
+        for ans in answerInfo:
+            answer_file.write(ans + '\n')
 
 if __name__ == "__main__":
     main()

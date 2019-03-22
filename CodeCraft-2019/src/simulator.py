@@ -608,7 +608,8 @@ class simulation(object):
         CARNAMESPACE.sort()
         CROSSNAMESPACE.sort()
     def step(self):
-        print("time:%d"%TIME[0])
+        if TIME[0] % 50 == 0:
+            print("time:%d"%TIME[0])
         for crossId in CROSSNAMESPACE:
             CROSSDICT[crossId].setDone(False)
         # print("pre-movement...")
