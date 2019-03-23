@@ -1,4 +1,5 @@
 from altgraph import GraphError
+from operator import itemgetter
 class Algorithms(object):
     def __init__(self):
         """
@@ -38,10 +39,12 @@ class Algorithms(object):
             if v == end:
                 break
 
+            # graph.out_nbrs(v): Return a list of all nodes connected by outgoing edges.
             for w in graph.out_nbrs(v):
                 edge_id = graph.edge_by_node(v, w)
-                vwLength = D[v] + graph.edge_data(edge_id)[1]/graph.edge_data(edge_id)[2]/graph.edge_data(edge_id)[3]
-                # vwLength = D[v] + 1
+                # edge_weight = road_length/speed_limit/channel_number
+                # vwLength = D[v] + graph.edge_data(edge_id)[1]/graph.edge_data(edge_id)[2]/graph.edge_data(edge_id)[3]
+                vwLength = D[v] + graph.edge_data(edge_id)
                 if w in D:
                     if vwLength < D[w]:
                         raise GraphError(
@@ -70,8 +73,90 @@ class Algorithms(object):
                 break
             end = P[end]
         Path.reverse()
+        print(D)
         return Path
 
+    ## Computes K paths from a source to a sink.
+    #
+    # @param graph A digraph of class Graph.
+    # @param start The source node of the graph.
+    # @param sink The sink node of the graph.
+    # @param K The amount of paths being computed.
+    #
+    # @retval [] Array of paths, where [0] is the shortest, [1] is the next
+    # shortest, and so on.
+    #
+    def ksp_yen(self, graph, node_start, node_end, max_k=2):
+        distances, previous = self.dijkstra(graph, node_start)
+
+        A = [{'cost': distances[node_end],
+              'path': self.path(previous, node_start, node_end)}]
+        B = []
+
+        if not A[0]['path']:
+            return A
+
+        for k in range(1, max_k):
+            for i in range(0, len(A[-1]['path']) - 1):
+                node_spur = A[-1]['path'][i]
+                path_root = A[-1]['path'][:i + 1]
+
+                edges_removed = []
+                for path_k in A:
+                    curr_path = path_k['path']
+                    if len(curr_path) > i and path_root == curr_path[:i + 1]:
+                        cost = graph.remove_edge(curr_path[i], curr_path[i + 1])
+                        if cost == -1:
+                            continue
+                        edges_removed.append([curr_path[i], curr_path[i + 1], cost])
+
+                path_spur = self.dijkstra(graph, node_spur, node_end)
+
+                if path_spur['path']:
+                    path_total = path_root[:-1] + path_spur['path']
+                    dist_total = distances[node_spur] + path_spur['cost']
+                    potential_k = {'cost': dist_total, 'path': path_total}
+
+                    if not (potential_k in B):
+                        B.append(potential_k)
+
+                for edge in edges_removed:
+                    graph.add_edge(edge[0], edge[1], edge[2])
+
+            if len(B):
+                B = sorted(B, key=itemgetter('cost'))
+                A.append(B[0])
+                B.pop(0)
+            else:
+                break
+
+        return A
+
+    ## Finds a paths from a source to a sink using a supplied previous node list.
+    #
+    # @param previous A list of node predecessors.
+    # @param node_start The source node of the graph.
+    # @param node_end The sink node of the graph.
+    #
+    # @retval [] Array of nodes if a path is found, an empty list if no path is
+    # found from the source to sink.
+    #
+    def path(self, previous, node_start, node_end):
+        route = []
+
+        node_curr = node_end
+        while True:
+            route.append(node_curr)
+            if previous[node_curr] == node_start:
+                route.append(node_start)
+                break
+            elif previous[node_curr] == None:
+                return []
+
+            node_curr = previous[node_curr]
+
+        route.reverse()
+        return route
 
     #
     # Utility classes and functions
