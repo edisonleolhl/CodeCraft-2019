@@ -20,16 +20,18 @@ def main():
     graph.add_edge(5, 4, 10)
     graph.add_edge(6, 4, 30)
     # # graph.hide_edge(8)
-    # print(graph.out_nbrs(1))
+    print(graph.out_nbrs(1))
+    print(graph.out_nbrs(3))
     # print(graph.get_hops(4,5))
     # print(graph.get_hops(1,4))
     # print(graph.forw_bfs(4))
-
+    # print(graph.out_degree(1))
+    # print(graph.tail(1))
     print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 1, 4)))
-    for node in graph.iterdfs(1, 4):
-        print(node)
+    # for node in graph.iterdfs(1, 4):
+    #     print(node)
     # print(algo.ksp_yen(graph, 1, 4, 4))
-
+    print(algo.simple_path(graph, 3, 1))
 
 if __name__ == "__main__":
     main()

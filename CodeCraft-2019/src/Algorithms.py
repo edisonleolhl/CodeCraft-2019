@@ -1,5 +1,7 @@
 from altgraph import GraphError
 from operator import itemgetter
+from collections import deque
+
 class Algorithms(object):
     def __init__(self):
         """
@@ -184,6 +186,29 @@ class Algorithms(object):
 
         route.reverse()
         return route
+
+    # generate a simple path from start to end using Depth First Search
+    def simple_path(self, graph, start, end=None):
+        visited, stack = set([start]), deque([start])
+        while stack:
+            # pop the last but not remove
+            curr_node = stack[-1]
+            visited.add(curr_node)
+            if curr_node == end:
+                break
+            isLeafNode = True
+            for edge in graph.out_edges(curr_node):
+                tail = graph.tail(edge)
+                if tail not in visited:
+                    stack.append(tail)
+                    isLeafNode = False
+                    break
+            if isLeafNode is True:
+                stack.pop()
+        simple_path = []
+        for i in range(stack.__len__()):
+            simple_path.append(stack[i])
+        return simple_path
 
     #
     # Utility classes and functions
