@@ -28,6 +28,7 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
     print("answer_path is %s" % (answer_path))
     car_list, road_list, cross_list = readFiles(car_path, road_path, cross_path)
+    car_list.sort(key=lambda x: x[-1], reverse=True) # fast car scheduled first
     graph = Graph()
     initMap(graph, road_list, cross_list)
     route_list = findRouteForCar(graph, car_list)
@@ -37,20 +38,22 @@ def main():
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
 
-    alternativeAns = []
-    alternativeTime = []
-    for i in range(20):
+    # alternativeAns = []
+    # alternativeTime = []
+    for i in range(1):
         answerInfo = generateAnswer(route_list, car_list)
-        alternativeAns.append(answerInfo)
+        # alternativeAns.append(answerInfo)
         simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
         time = simulate.simulate()
-        alternativeTime.append(time)
+        # alternativeTime.append(time)
         print('Current schedule time: %d' %time)
 
-    answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
-    writeFiles(answerInfo, answer_path)
-    print('Final schedule time: %d' %min(alternativeTime))
 
+
+    # answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
+    writeFiles(answerInfo, answer_path)
+    # print('Final schedule time: %d' %min(alternativeTime))
+#
 # to read input file
 # output:
 # road_list = [['5000', '10', '5', '1', '1', '2', '1'],
@@ -108,7 +111,13 @@ def findRouteForCar(graph, car_list):
     algo = Algorithms()
     route_list = []
     for car in car_list:
-        path = algo.shortest_path(graph, car[1], car[2])
+        # path1 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[0]['path']
+        # path2 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[1]['path']
+        # if random.random()>0.3:
+        #     path = path1
+        # else:
+        #     path = path2
+        path = algo.shortest_path(graph, car[1], car[2], car[-2])
         if len(path) > 1:
             route = []
             for i in range(len(path)-1):
@@ -130,11 +139,11 @@ def generateAnswer(route_list, car_list):
         speed = car_list[i][-2]
         car_depart_time = plan_time
         if speed == 2:
-            car_depart_time = plan_time + 12 + int(random.random()*10)
+            car_depart_time = plan_time + 12
         elif speed == 4:
-            car_depart_time = plan_time + 8 + int(random.random()*10)
+            car_depart_time = plan_time + 8
         elif speed == 6:
-            car_depart_time = plan_time + 4 + int(random.random()*10)
+            car_depart_time = plan_time + 4
         elif speed == 8:
             car_depart_time = plan_time
         car_depart_time += i // 13

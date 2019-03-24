@@ -6,7 +6,7 @@ class Algorithms(object):
         Initialization
         """
 
-    def dijkstra(self, graph, start, end=None):
+    def dijkstra(self, graph, start, end=None, usedByYenKSP=False, car_speed=0):
         """
         Dijkstra's algorithm for shortest paths
 
@@ -43,7 +43,9 @@ class Algorithms(object):
             for w in graph.out_nbrs(v):
                 edge_id = graph.edge_by_node(v, w)
                 # edge_weight = road_length/speed_limit/channel_number
-                # vwLength = D[v] + graph.edge_data(edge_id)[1]/graph.edge_data(edge_id)[2]/graph.edge_data(edge_id)[3]
+                # max_speed = min(car_speed, graph.edge_data(edge_id)[2])
+                # vwLength = D[v] + graph.edge_data(edge_id)[1] / max_speed / graph.edge_data(edge_id)[3]
+                # vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
                 vwLength = D[v] + graph.edge_data(edge_id)
                 if w in D:
                     if vwLength < D[w]:
@@ -53,10 +55,21 @@ class Algorithms(object):
                     Q[w] = vwLength
                     P[w] = v
 
-        return (D, P)
+
+        if usedByYenKSP:
+            if end:
+                if end not in graph.forw_bfs(start):  # can not reach end_node from start_node
+                    return {'cost': D[start],
+                            'path': []}
+                return {'cost': D[end],
+                        'path': self.path(P, start, end)}
+            else:
+                return (D, P)
+        else:
+            return (D, P)
 
 
-    def shortest_path(self, graph, start, end):
+    def shortest_path(self, graph, start, end, car_speed=0):
         """
         Find a single shortest path from the *start* node to the *end* node.
         The input has the same conventions as dijkstra(). The output is a list of
@@ -65,15 +78,18 @@ class Algorithms(object):
         **Note that the distances must be stored in the edge data as numeric data**
         """
 
-        D, P = self.dijkstra(graph, start, end)
+        D, P = self.dijkstra(graph, start, end, False, car_speed)
         Path = []
+        if end not in P:
+            return
         while 1:
             Path.append(end)
+            # if end not in P:
+            #     break
             if end == start:
                 break
             end = P[end]
         Path.reverse()
-        print(D)
         return Path
 
     ## Computes K paths from a source to a sink.
@@ -86,8 +102,10 @@ class Algorithms(object):
     # @retval [] Array of paths, where [0] is the shortest, [1] is the next
     # shortest, and so on.
     #
-    def ksp_yen(self, graph, node_start, node_end, max_k=2):
-        distances, previous = self.dijkstra(graph, node_start)
+    def ksp_yen(self, graph, node_start, node_end, max_k=2, car_speed=0):
+        if node_end not in graph.forw_bfs(node_start):  # can not reach end_node from start_node
+            return
+        distances, previous = self.dijkstra(graph, node_start, None, True, car_speed)
 
         A = [{'cost': distances[node_end],
               'path': self.path(previous, node_start, node_end)}]
@@ -105,12 +123,18 @@ class Algorithms(object):
                 for path_k in A:
                     curr_path = path_k['path']
                     if len(curr_path) > i and path_root == curr_path[:i + 1]:
-                        cost = graph.remove_edge(curr_path[i], curr_path[i + 1])
-                        if cost == -1:
+                        # cost = graph.remove_edge(curr_path[i], curr_path[i + 1])
+                        hidden_edge_id = graph.edge_by_node(curr_path[i], curr_path[i+1])
+                        if hidden_edge_id == None:
                             continue
+                        # cost = -1
+                        cost = graph.edge_data(hidden_edge_id)
+                        graph.hide_edge(hidden_edge_id)
+                        # if cost == -1:
+                        #     continue
                         edges_removed.append([curr_path[i], curr_path[i + 1], cost])
 
-                path_spur = self.dijkstra(graph, node_spur, node_end)
+                path_spur = self.dijkstra(graph, node_spur, node_end, True, car_speed)
 
                 if path_spur['path']:
                     path_total = path_root[:-1] + path_spur['path']
@@ -120,8 +144,11 @@ class Algorithms(object):
                     if not (potential_k in B):
                         B.append(potential_k)
 
-                for edge in edges_removed:
-                    graph.add_edge(edge[0], edge[1], edge[2])
+                # for edge in edges_removed:
+                #     # graph.add_edge(edge[0], edge[1], edge[2])
+                #     hidden_edge_id = graph.edge_by_node(edge[0], edge[1])
+                #     graph.restore_edge(hidden_edge_id)
+                graph.restore_all_edges()
 
             if len(B):
                 B = sorted(B, key=itemgetter('cost'))
