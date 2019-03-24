@@ -7,7 +7,7 @@ from altgraph import GraphError
 def main():
     algo = Algorithms()
     graph = Graph()
-    for i in range(7):
+    for i in range(6):
         graph.add_node(i+1)
     graph.add_edge(1, 2, 30)
     graph.add_edge(2, 1, 5)
@@ -26,7 +26,7 @@ def main():
     # print(graph.forw_bfs(4))
 
     print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 1, 4)))
-    for node in graph.iterdfs(3,5):
+    for node in graph.iterdfs(1, 4):
         print(node)
     # print(algo.ksp_yen(graph, 1, 4, 4))
 
