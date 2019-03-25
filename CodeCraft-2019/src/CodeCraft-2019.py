@@ -28,10 +28,11 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
     print("answer_path is %s" % (answer_path))
     car_list, road_list, cross_list = readFiles(car_path, road_path, cross_path)
-    car_list.sort(key=lambda x: x[-1], reverse=True) # fast car scheduled first
+    car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
     graph = Graph()
     initMap(graph, road_list, cross_list)
-    route_list = findRouteForCar(graph, car_list)
+    # route_list = findRouteForCar(graph, car_list)
+    route_list = chooseRouteForCar(graph, car_list)
 
     carInfo = open(car_path, 'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
@@ -47,8 +48,6 @@ def main():
         time = simulate.simulate()
         # alternativeTime.append(time)
         print('Current schedule time: %d' %time)
-
-
 
     # answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
     writeFiles(answerInfo, answer_path)
@@ -107,17 +106,56 @@ def initMap(graph, road_list, cross_list):
         if road[-1] == 1:
             graph.add_edge(road[5], road[4], (int(road[0]), int(road[1]), int(road[2]), int(road[3])))
 
+# search ALL route of graph,
+def searchRoute(graph):
+    algo = Algorithms()
+    route_list = {}
+    for start in graph.node_list():
+        for end in graph.node_list():
+            if start == end:
+                continue
+            # path1 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[0]['path']
+            # path2 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[1]['path']
+            path1 = algo.shortest_path(graph, start, end)
+            path2 = algo.simple_path(graph, start, end)
+            if random.random() > 0.01:
+                path = path1
+            else:
+                path = path2
+            if not path:
+                continue
+            if len(path) > 1:
+                route = []
+                for i in range(len(path)-1):
+                    edge_id = graph.edge_by_node(path[i], path[i+1])
+                    road_id = graph.edge_data(edge_id)[0]
+                    route.append(road_id)
+                route_list[(start, end)] = route
+    return route_list
+
+# if car number > node^2 (approximataly), chooseRouteForCar is faster than findRouteForCar
+def chooseRouteForCar(graph, car_list):
+    route_list = []
+    all_route_list = searchRoute(graph)
+    for car in car_list:
+        s = (car[1], car[2])
+        route_list.append(all_route_list[s])
+    return route_list
+
+
+# if car number < node^2 (approximataly), findRouteForCar is faster than chooseRouteForCar
 def findRouteForCar(graph, car_list):
     algo = Algorithms()
     route_list = []
     for car in car_list:
         # path1 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[0]['path']
         # path2 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[1]['path']
-        # if random.random()>0.3:
-        #     path = path1
-        # else:
-        #     path = path2
-        path = algo.shortest_path(graph, car[1], car[2], car[-2])
+        path1 = algo.shortest_path(graph, car[1], car[2], car[-2])
+        path2 = algo.simple_path(graph, car[1], car[2])
+        if random.random()>0.01:
+            path = path1
+        else:
+            path = path2
         if len(path) > 1:
             route = []
             for i in range(len(path)-1):
@@ -126,7 +164,6 @@ def findRouteForCar(graph, car_list):
                 route.append(road_id)
         route_list.append(route)
     return route_list
-
 
 # generate answerInfo
 def generateAnswer(route_list, car_list):
@@ -146,7 +183,7 @@ def generateAnswer(route_list, car_list):
             car_depart_time = plan_time + 4
         elif speed == 8:
             car_depart_time = plan_time
-        car_depart_time += i // 13
+        car_depart_time += i // 10
         answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
     return answerInfo
 
