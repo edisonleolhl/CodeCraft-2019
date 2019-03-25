@@ -1,6 +1,7 @@
 from altgraph import GraphError
 from operator import itemgetter
 from collections import deque
+import random
 
 class Algorithms(object):
     def __init__(self):
@@ -47,8 +48,8 @@ class Algorithms(object):
                 # edge_weight = road_length/speed_limit/channel_number
                 # max_speed = min(car_speed, graph.edge_data(edge_id)[2])
                 # vwLength = D[v] + graph.edge_data(edge_id)[1] / max_speed / graph.edge_data(edge_id)[3]
-                # vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
-                vwLength = D[v] + graph.edge_data(edge_id)
+                vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
+                # vwLength = D[v] + graph.edge_data(edge_id)
                 if w in D:
                     if vwLength < D[w]:
                         raise GraphError(
@@ -197,12 +198,15 @@ class Algorithms(object):
             if curr_node == end:
                 break
             isLeafNode = True
-            for edge in graph.out_edges(curr_node):
-                tail = graph.tail(edge)
-                if tail not in visited:
-                    stack.append(tail)
-                    isLeafNode = False
-                    break
+            out_edges = graph.out_edges(curr_node)
+            random.shuffle(out_edges)
+            if out_edges:
+                for edge in out_edges:
+                    tail = graph.tail(edge)
+                    if tail not in visited:
+                        stack.append(tail)
+                        isLeafNode = False
+                        break
             if isLeafNode is True:
                 stack.pop()
         simple_path = []
