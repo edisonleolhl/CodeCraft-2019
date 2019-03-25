@@ -127,7 +127,7 @@ def searchRoute(graph):
             if rand > 0.1:
                 path = path1
             else:
-                path = path2
+                path = path1
             # elif rand > 0.1:
             #     path = path2
             # else:
@@ -139,7 +139,7 @@ def searchRoute(graph):
                 for i in range(len(path)-1):
                     edge_id = graph.edge_by_node(path[i], path[i+1])
                     road_id = graph.edge_data(edge_id)[0]
-                    new_length = graph.edge_data(edge_id)[1] + 10
+                    new_length = graph.edge_data(edge_id)[1] + 35
                     new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                     graph.update_edge_data(edge_id, new_edge_data)
                     road_count[road_id] +=1
@@ -198,7 +198,7 @@ def generateAnswer(route_list, car_list):
             car_depart_time = plan_time + 4
         elif speed == 8:
             car_depart_time = plan_time
-        car_depart_time += i // 17
+        car_depart_time += i // 28
         answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
     return answerInfo
 
