@@ -538,16 +538,68 @@ class CROSS(object):
         return self.mapX,self.mapY
 
 class simulation(object):
-    def __init__(self):
+    def __init__(self, carInfo, roadInfo, crossInfo, answerInfo):
         self.dead = False
+        global CARDISTRIBUTION, CARNAMESPACE, ROADNAMESPACE, CROSSNAMESPACE, CROSSDICT, CARDICT, ROADDICT
+        CARDISTRIBUTION = [0, 0, 0]
+        CARNAMESPACE, ROADNAMESPACE, CROSSNAMESPACE = [], [], []
+        CROSSDICT, CARDICT, ROADDICT = {}, {}, {}
+        # ************************************* M A I N *******************************************#
+        # load .txt files
+        # carInfo = open(car_path, 'r').read().split('\n')[1:]
+        # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+        # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+        # answerInfo = open(answer_path, 'r').read().split('\n')
+        # *****************************Create NameSpace And Dictionary*****************************#
+        # create car objects
+        # line = (id,from,to,speed,planTime)
+        for line in carInfo:
+            id_, from_, to_, speed_, planTime_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            CARNAMESPACE.append(int(id_))
+            CARDICT[int(id_)] = CAR(int(id_), int(from_), int(to_), int(speed_), int(planTime_))
+        # create road objects
+        # line = (id,length,speed,channel,from,to,isDuplex)
+        for line in roadInfo:
+            id_, length_, speed_, channel_, from_, to_, isDuplex_ = line.replace(' ', '').replace('\t', '')[1:-1].split(
+                ',')
+            ROADNAMESPACE.append(int(id_))
+            ROADDICT[int(id_)] = ROAD(int(id_), int(length_), int(speed_), int(channel_), int(from_), int(to_),
+                                      int(isDuplex_))
+        # create cross objects
+        # line = (id,north,east,south,west)
+        for line in crossInfo:
+            id_, north_, east_, south_, west_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            CROSSNAMESPACE.append(int(id_))
+            CROSSDICT[int(id_)] = CROSS(int(id_), int(north_), int(east_), int(south_), int(west_))
+        # car route initialize
+        # line = (id,startTime,route)
+        count = 0
+        for i, line in enumerate(answerInfo):
+            if line.strip() == '':
+                break
+            line = line.strip()[1:-1].split(',')
+            carId = int(line[0])
+            planTime_ = int(line[1])
+            route = [int(roadId) for roadId in line[2:]]
+            CARDICT[carId].simulateInit(planTime_, route)
+            count += 1
+        print("There are %d cars' route preinstalled" % count)
+        CARDISTRIBUTION[0] = CARNAMESPACE.__len__()
+        # **** cross initialization ****#
+        for carId in CARNAMESPACE:
+            CROSSDICT[CARDICT[carId].__from__()].carportInitial(CARDICT[carId].__planTime__(), carId)
+        # ****Initialization ****#
+        CARNAMESPACE.sort()
+        CROSSNAMESPACE.sort()
     def step(self):
-        print("time:%d"%TIME[0])
+        if TIME[0] % 200 == 0:
+            print("time:%d"%TIME[0])
         for crossId in CROSSNAMESPACE:
             CROSSDICT[crossId].setDone(False)
-        print("pre-movement...")
+        # print("pre-movement...")
         for road in ROADNAMESPACE:
             ROADDICT[road].stepInit()
-        print("while loop...")
+        # print("while loop...")
         unfinishedCross = CROSSNAMESPACE
         while unfinishedCross.__len__() > 0:
             self.dead = True
@@ -561,253 +613,25 @@ class simulation(object):
                     self.dead = False
             unfinishedCross = nextCross
             assert self.dead is False, print("dead lock in", unfinishedCross)
-        print("car pulling away from carport")
+        # print("car pulling away from carport")
         for i in range(CROSSNAMESPACE.__len__()):
             crossId = CROSSNAMESPACE[i]
             for roadId in CROSSDICT[crossId].__validRoad__():
                 ROADDICT[roadId].setBucket(crossId)
             CROSSDICT[crossId].outOfCarport()
     def simulate(self):
-        visualize = visualization()
-        visualize.crossLocGen()
         while True:
             self.step()
-            visualize.drawMap()
             if CARDISTRIBUTION[2]==CARNAMESPACE.__len__():
-                print(CARDISTRIBUTION[2])
-                break
+                print('%d cars have been scheduled' %CARDISTRIBUTION[2])
+                time = TIME[0]
+                TIME[0] = 0
+                return time
             if self.dead:
                 break
             TIME[0] +=1
-
-class visualization(object):
-    def __init__(self):
-        self.maxX,self.maxY = 0,0
-        self.savePath = '../../../simulatePictures'
-        # ** cross param **#
-        self.crossRadius = 14
-        self.crossDistance = 150
-        self.crossColor = [25,200,0]
-        # ** road param **#
-        self.roadColor = [0,0,0] #black
-        self.roadLineType = 4
-        self.channelWidth = 5
-        self.channelDistance = 3
-        self.lineWidth = 2
-        self.time = 0
-    #
-    # cross location gen
-    #
-    def crossLocGen(self):
-        #**** relative location ****#
-        # denote the first cross as the origin of coordinates
-        for crossId in CROSSNAMESPACE:
-            CROSSDICT[crossId].setDone(False)
-        crossList = [CROSSNAMESPACE[0]]
-        minX,minY = 0,0
-        while(crossList.__len__()>0):
-            nextCrossList = []
-            for crossId in crossList:
-                presentX,presntY = CROSSDICT[crossId].__loc__()
-                validRoad = CROSSDICT[crossId].__validRoad__()
-                for roadId in validRoad:
-                    #next cross id
-                    nextCrossId = ROADDICT[roadId].__from__() if ROADDICT[roadId].__from__() != crossId \
-                                                            else ROADDICT[roadId].__to__()
-                    # if next cross is visited
-                    if not CROSSDICT[nextCrossId].__done__():
-                        # visit sets true
-                        CROSSDICT[nextCrossId].setDone(True)
-                        # relative location of nextcross
-                        nextX,nextY = self.crossRelativeLoc(presentX,presntY,crossId,roadId)
-                        # update location
-                        CROSSDICT[nextCrossId].setLoc(nextX,nextY)
-                        minX,minY,self.maxX,self.maxY=\
-                                    min(nextX,minX),min(nextY,minY),max(nextX,self.maxX),max(nextY,self.maxY)
-                        nextCrossList.append(nextCrossId)
-            crossList = nextCrossList
-        self.maxX,self.maxY = (self.maxX-minX+2)*self.crossDistance,(self.maxY-minY+2)*self.crossDistance
-        for crossId in CROSSNAMESPACE:
-            x,y = CROSSDICT[crossId].__loc__()
-            CROSSDICT[crossId].setLoc(x-minX,y-minY)
-            CROSSDICT[crossId].setMapLoc((x - minX+1)*self.crossDistance, (y - minY+1)*self.crossDistance)
-    def crossRelativeLoc(self,x,y,crossId,roadId):
-        roadDirection = CROSSDICT[crossId].roadDirection(roadId)
-        if roadDirection==0:
-            return x,y-1
-        elif roadDirection==1:
-            return x+1,y
-        elif roadDirection==2:
-            return x,y+1
-        elif roadDirection==3:
-            return x-1,y
-        else:
-            print("Cross(%d) don't interact with road(%d)"%(self.id_,roadId))
-    #
-    # draw functions
-    #
-    def drawMap(self):
-        img = np.ones((self.maxX,self.maxY,3),np.uint8)*255
-        #draw road
-        for roadId in ROADNAMESPACE:
-            self.plotRoad(roadId,img)
-        # draw cross
-        for crossId in CROSSNAMESPACE:
-            self.plotCross(crossId,img)
-        # plot info
-        self.plotInfo(img)
-        cv.imwrite(self.savePath+'/%d.jpg'%TIME[0],img)
-    def plotCross(self,crossId,img):
-        x, y = CROSSDICT[crossId].__mapLoc__()
-        cv.circle(img,(x,y),self.crossRadius,color=self.crossColor,thickness=-1,lineType=-1)
-        if crossId>=10:
-            xx, yy = int(x - 4*self.crossRadius/5), int(y + self.crossRadius / 2)
-        else:
-            xx, yy = int(x- self.crossRadius/2), int(y + self.crossRadius / 2)
-        cv.putText(img,str(crossId),(xx,yy ),cv.FONT_HERSHEY_SIMPLEX,0.6,[0,0,255],2)
-    def plotRoad(self,roadId,img):
-        # get road info
-        road = ROADDICT[roadId]
-        fromX, fromY = CROSSDICT[road.__from__()].__mapLoc__()
-        toX, toY = CROSSDICT[road.__to__()].__mapLoc__()
-        # plot line
-        cv.line(img,(fromX, fromY),(toX, toY),color=self.roadColor,thickness=2)
-        # plot bucket
-        self.drawBucket(road,'forward',img)
-        if road.__isDuplex__():
-            self.drawBucket(road,'backward',img)
-    def drawBucket(self,road,lane,img):
-        bucket = road.__forwardBucket__() if lane !='backward' else road.__backwardBucket__()
-        length = road.__length__()
-        channel = road.__channel__()
-        fromX, fromY = CROSSDICT[road.__from__()].__mapLoc__()
-        toX, toY = CROSSDICT[road.__to__()].__mapLoc__()
-        XY, intervalXY, rectangleSize, channel2XY, length2XY = self.bucketDrawInitial(fromX,fromY,toX,toY,lane,length)
-        for i in range(length):
-            for j in range(channel):
-                xRD,yRD = int(XY[0]+rectangleSize[0]),int(XY[1]+rectangleSize[1])
-                if bucket[i][j] is  None:
-                    cv.rectangle(img,(int(XY[0]),int(XY[1])),(xRD,yRD),(0,0,0),1)
-                else:
-                    color = CARDICT[bucket[i][j]].__carColor__()
-                    cv.rectangle(img, (int(XY[0]), int(XY[1])),(xRD, yRD),color=color,thickness=-1)
-                XY[channel2XY] = XY[channel2XY] + intervalXY[channel2XY]
-            XY[channel2XY] = XY[channel2XY] - intervalXY[channel2XY]*channel
-            XY[length2XY] = XY[length2XY] + intervalXY[length2XY]
-    def bucketDrawInitial(self,fromX,fromY,toX,toY,lane,length):
-        direction = self.bucketDirection(fromX,fromY,toX,toY,lane)
-        unitLength = (self.crossDistance - self.crossRadius * 4) / length
-        if lane=='backward':
-            toY=fromY
-            toX=fromX
-        if direction == 'north':
-            XY = [fromX + self.channelDistance,toY + self.crossRadius * 2]
-            intervalXY = self.channelDistance  + self.channelWidth , unitLength
-            rectangleSize = self.channelWidth , unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'south':
-            XY = [fromX - self.channelDistance - self.channelWidth,toY - self.crossRadius * 2 - unitLength]
-            intervalXY = -(self.channelDistance  + self.channelWidth ), -unitLength
-            rectangleSize = self.channelWidth , unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'east':
-            XY = [toX - self.crossRadius * 2 - unitLength,fromY + self.channelDistance]
-            intervalXY = -unitLength, self.channelDistance + self.channelWidth
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        elif direction == 'west':
-            XY = [toX + self.crossRadius * 2, fromY - self.channelDistance - self.channelWidth]
-            intervalXY = unitLength, -(self.channelDistance + self.channelWidth)
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        return XY,intervalXY,rectangleSize,channel2XY,length2XY
-    def bucketDirection(self,fromX,fromY,toX,toY,lane):
-        if fromY > toY:
-            direction = 'north' if lane=='forward' else 'south'
-        elif fromY < toY:
-            direction = 'south' if lane == 'forward' else 'north'
-        elif fromX < toX:
-            direction = 'east' if lane == 'forward' else 'west'
-        else:
-            direction = 'west' if lane == 'forward' else 'east'
-        return direction
-    def plotInfo(self,img):
-        for crossId in CROSSNAMESPACE:
-            cross = CROSSDICT[crossId]
-            x,y = cross.__mapLoc__()
-            cn,fn = cross.__carportCarNum__(),cross.__finishCarNum__()
-            cv.putText(img,"%d,%d"%(cn,fn),(int(x),int(y-1.1*self.crossRadius)),\
-                       cv.FONT_HERSHEY_SIMPLEX,0.4,[0,0,255],1)
-        cv.putText(img, "in the carport:%d,on the road:%d,end of the trip:%d" % (CARDISTRIBUTION[0],CARDISTRIBUTION[1],CARDISTRIBUTION[2]),(30,30), \
-                   cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 0, 255], 2)
 
 def takeSecond(elem):
     return elem[1]
 
 
-def main():
-    car_path = sys.argv[1]
-    road_path = sys.argv[2]
-    cross_path = sys.argv[3]
-    answer_path = sys.argv[4]
-    # ************************************* M A I N *******************************************#
-    # load .txt files
-    carInfo = open(car_path, 'r').read().split('\n')[1:]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    answerInfo = open(answer_path,'r').read().split('\n')
-    # *****************************Create NameSpace And Dictionary*****************************#
-    # create car objects
-    # line = (id,from,to,speed,planTime)
-    for line in carInfo:
-        id_, from_, to_, speed_, planTime_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        CARNAMESPACE.append(int(id_))
-        CARDICT[int(id_)] = CAR(int(id_), int(from_), int(to_), int(speed_), int(planTime_))
-    # create road objects
-    # line = (id,length,speed,channel,from,to,isDuplex)
-    for line in roadInfo:
-        id_, length_, speed_, channel_, from_, to_, isDuplex_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        ROADNAMESPACE.append(int(id_))
-        ROADDICT[int(id_)] = ROAD(int(id_), int(length_), int(speed_), int(channel_), int(from_), int(to_),
-                                  int(isDuplex_))
-    # create cross objects
-    # line = (id,north,east,south,west)
-    for line in crossInfo:
-        id_, north_, east_, south_, west_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        CROSSNAMESPACE.append(int(id_))
-        CROSSDICT[int(id_)] = CROSS(int(id_), int(north_), int(east_), int(south_), int(west_))
-    # car route initialize
-    # line = (id,startTime,route)
-    count = 0
-    for i,line in enumerate(answerInfo):
-        if line.__len__() <3:
-            continue
-        if line[0]=='#':
-            continue
-        line=line.strip()[1:-1].split(',')
-        carId = int(line[0])
-        planTime_ = int(line[1])
-        route = [int(roadId) for roadId in  line[2:]]
-        CARDICT[carId].simulateInit(planTime_,route)
-        count+=1
-    print("There are %d cars' route preinstalled"%count)
-    CARDISTRIBUTION[0] = CARNAMESPACE.__len__()
-    # **** cross initialization ****#
-    for carId in CARNAMESPACE:
-        CROSSDICT[CARDICT[carId].__from__()].carportInitial(CARDICT[carId].__planTime__(), carId)
-    # ****Initialization ****#
-    CARNAMESPACE.sort()
-    CROSSNAMESPACE.sort()
-    # simulator
-    simulate = simulation()
-    simulate.simulate()
-
-
-
-if __name__  ==   "__main__":
-    main()
-
-
-
-# python simulator.py ../config_11/car.txt ../config_11/road.txt ../config_11/cross.txt ../config_11/answer.txt
-# python simulator.py ../config_12/car.txt ../config_12/road.txt ../config_12/cross.txt ../config_12/answer.txt

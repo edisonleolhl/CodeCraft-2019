@@ -4,7 +4,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-from simulator import *
+from simulator1 import *
 
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
@@ -145,7 +145,6 @@ def searchRoute(graph):
                     road_count[road_id] +=1
                     route.append(road_id)
                 route_list[(start, end)] = route
-    print(road_count)
     return route_list
 
 # if car number > node^2 (approximataly), chooseRouteForCar is faster than findRouteForCar
@@ -191,11 +190,11 @@ def generateAnswer(route_list, car_list):
         speed = car_list[i][-2]
         car_depart_time = plan_time
         if speed == 2:
-            car_depart_time = plan_time + 12
+            car_depart_time = plan_time
         elif speed == 4:
-            car_depart_time = plan_time + 8
+            car_depart_time = plan_time
         elif speed == 6:
-            car_depart_time = plan_time + 4
+            car_depart_time = plan_time
         elif speed == 8:
             car_depart_time = plan_time
         car_depart_time += i // 28
