@@ -83,8 +83,8 @@ print(cross_object_dict)
 print(road_object_dict)
 
 
-cross_path = 'DIY/cross.txt'
-road_path = 'DIY/road.txt'
+cross_path = '../DIY/cross.txt'
+road_path = '../DIY/road.txt'
 with open(cross_path, 'w') as cross_file:
     cross_file.write('# (id,roadId,roadId,roadId,roadId)\n')
     for cross_id, cross_object in cross_object_dict.items():
