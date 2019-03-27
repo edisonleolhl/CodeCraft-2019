@@ -5,7 +5,6 @@ from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
 from simulator1 import *
-
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -34,6 +33,7 @@ def main():
     route_list = findRouteForCar(graph, car_list)
     # route_list = chooseRouteForCar(graph, car_list)
 
+
     carInfo = open(car_path, 'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
@@ -46,7 +46,7 @@ def main():
         # alternativeAns.append(answerInfo)
         simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
         time = simulate.simulate()
-        # alternativeTime.append(time)
+        # # alternativeTime.append(time)
         print('Current schedule time: %d' %time)
 
     # answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
@@ -115,8 +115,9 @@ def searchRoute(graph):
     #     road_count.setdefault(road_id, 0)
     algo = Algorithms()
     all_route_list = {}
-    for start in graph.node_list():
-        for end in graph.node_list():
+    node_list = graph.node_list()
+    for start in node_list:
+        for end in node_list:
             if start == end:
                 continue
             # K SHORTEST PATH && SIMPLE PATH ARE SLOWER
@@ -136,9 +137,10 @@ def searchRoute(graph):
             path = algo.shortest_path(graph, start, end)
             if not path:
                 continue
-            if len(path) > 1:
+            path_len = len(path)
+            if path_len > 1:
                 route = []
-                for i in range(len(path)-1):
+                for i in range(path_len-1):
                     edge_id = graph.edge_by_node(path[i], path[i+1])
                     road_id = graph.edge_data(edge_id)[0]
                     new_length = graph.edge_data(edge_id)[1] + 35
@@ -181,12 +183,13 @@ def findRouteForCar(graph, car_list):
         # else:
         #     path = path2
         path = algo.shortest_path(graph, car[1], car[2], car[-2])
-        if len(path) > 1:
+        path_len = len(path)
+        if path_len > 1:
             route = []
-            for i in range(len(path)-1):
+            for i in range(path_len-1):
                 edge_id = graph.edge_by_node(path[i], path[i+1])
                 road_id = graph.edge_data(edge_id)[0]
-                new_length = graph.edge_data(edge_id)[1] + 35 # PENALTY
+                new_length = graph.edge_data(edge_id)[1] + 40 # PENALTY
                 new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
                 # FOR DEBUG
@@ -200,7 +203,7 @@ def findRouteForCar(graph, car_list):
 # generate answerInfo
 def generateAnswer(route_list, car_list):
     answerInfo = []
-    for i in range(len(car_list)): # use 'map' in python to accelerate
+    for i in range(len(car_list)):
         route = route_list[i]
         route = str(route).strip('[').strip(']')
         car_id = car_list[i][0]
@@ -215,7 +218,7 @@ def generateAnswer(route_list, car_list):
         #     car_depart_time = plan_time
         # elif speed == 8:
         #     car_depart_time = plan_time
-        car_depart_time += i // 48
+        car_depart_time += i // 32
         answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
     return answerInfo
 
