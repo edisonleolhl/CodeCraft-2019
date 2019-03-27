@@ -85,16 +85,34 @@ print(road_object_dict)
 
 cross_path = '../DIY/cross.txt'
 road_path = '../DIY/road.txt'
+car_path = '../DIY/car.txt'
+
 with open(cross_path, 'w') as cross_file:
     cross_file.write('# (id,roadId,roadId,roadId,roadId)\n')
     for cross_id, cross_object in cross_object_dict.items():
+        if cross_id == cross_number:
+            continue
         cross_file.write('(' + str(cross_id) + ', ' + str(cross_object.north_road) + ', ' +
                          str(cross_object.east_road) + ', ' + str(cross_object.south_road) + ', ' +
                          str(cross_object.west_road) + ')\n')
 with open(road_path, 'w') as road_file:
     road_file.write('#(id,length,speed,channel,from,to,isDuplex)\n')
     for road_id, road_object in road_object_dict.items():
+        if road_id == road_index - 1:
+            continue
         road_file.write('(' + str(road_id) + ', ' + str(road_object.length) + ', ' +
                         str(road_object.speed) + ', ' + str(road_object.channel) + ', ' +
                         str(road_object.from_) + ', ' + str(road_object.to) + ', ' +
                         str(road_object.isDuplex) + ')\n')
+with open(car_path, 'w') as car_file:
+    car_file.write('#(id,from,to,speed,planTime)\n')
+    for car_id in range(10000, 50960):
+        from_ = int(random.random() * 100) + 1
+        to = int(random.random() * 100) + 1
+        while to == from_:
+            to = int(random.random() * 100) + 1
+        speed = 2*(int(random.random() * 3) + 2)
+        planTime = int(random.random() * 100) + 1
+        car_file.write('(' + str(car_id) + ', ' + str(from_) + ', ' +
+                        str(to) + ', ' + str(speed) + ', ' +
+                        str(planTime) + ')\n')
