@@ -28,6 +28,7 @@ def main():
     # print("answer_path is %s" % (answer_path))
     car_list, road_list, cross_list = readFiles(car_path, road_path, cross_path)
     # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
+    car_list = sorted(car_list, key=lambda x: x[-1]) # first car scheduled first
     graph = Graph()
     initMap(graph, road_list, cross_list)
     route_list = findRouteForCar(graph, car_list)
@@ -189,7 +190,7 @@ def findRouteForCar(graph, car_list):
             for i in range(path_len-1):
                 edge_id = graph.edge_by_node(path[i], path[i+1])
                 road_id = graph.edge_data(edge_id)[0]
-                new_length = graph.edge_data(edge_id)[1] + 40 # PENALTY
+                new_length = graph.edge_data(edge_id)[1] + 4 # PENALTY
                 new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
                 # FOR DEBUG
@@ -218,7 +219,7 @@ def generateAnswer(route_list, car_list):
         #     car_depart_time = plan_time
         # elif speed == 8:
         #     car_depart_time = plan_time
-        car_depart_time += i // 32
+        car_depart_time += i // 53
         answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
     return answerInfo
 
