@@ -4,7 +4,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-from simulator1 import *
+# from simulator1 import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -28,16 +28,18 @@ def main():
     # print("answer_path is %s" % (answer_path))
     car_list, road_list, cross_list = readFiles(car_path, road_path, cross_path)
     # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
-    car_list = sorted(car_list, key=lambda x: x[-1]) # first car scheduled first
+    # car_list = sorted(car_list, key=lambda x: x[-1]) # first car scheduled first
+    car_list = sorted(car_list, key=lambda x: (x[-1], x[-2])) # first sort planTime(first car scheduled first), then sort speed(slow car scheduled first)
+
     graph = Graph()
     initMap(graph, road_list, cross_list)
     route_list = findRouteForCar(graph, car_list)
     # route_list = chooseRouteForCar(graph, car_list)
 
 
-    carInfo = open(car_path, 'r').read().split('\n')[1:]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    # carInfo = open(car_path, 'r').read().split('\n')[1:]
+    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
 
     # alternativeAns = []
@@ -45,10 +47,10 @@ def main():
     for i in range(1):
         answerInfo = generateAnswer(route_list, car_list)
         # alternativeAns.append(answerInfo)
-        simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
-        time = simulate.simulate()
+        # simulate = simulation(carInfo, roadInfo, crossInfo, answerInfo)
+        # time = simulate.simulate()
         # # alternativeTime.append(time)
-        print('Current schedule time: %d' %time)
+        # print('Current schedule time: %d' %time)
 
     # answerInfo = alternativeAns[alternativeTime.index(min(alternativeTime))]
     writeFiles(answerInfo, answer_path)
@@ -190,7 +192,7 @@ def findRouteForCar(graph, car_list):
             for i in range(path_len-1):
                 edge_id = graph.edge_by_node(path[i], path[i+1])
                 road_id = graph.edge_data(edge_id)[0]
-                new_length = graph.edge_data(edge_id)[1] + 4 # PENALTY
+                new_length = graph.edge_data(edge_id)[1] + 10 # PENALTY
                 new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
                 # FOR DEBUG
@@ -219,7 +221,7 @@ def generateAnswer(route_list, car_list):
         #     car_depart_time = plan_time
         # elif speed == 8:
         #     car_depart_time = plan_time
-        car_depart_time += i // 53
+        car_depart_time += i // 70
         answerInfo.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
     return answerInfo
 

@@ -48,7 +48,9 @@ class Algorithms(object):
                 # edge_weight = road_length/speed_limit/channel_number
                 # max_speed = min(car_speed, graph.edge_data(edge_id)[2])
                 # vwLength = D[v] + graph.edge_data(edge_id)[1] / max_speed / graph.edge_data(edge_id)[3]
-                vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
+                # vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
+                vwLength = D[v] + graph.edge_data(edge_id)[1] /graph.edge_data(edge_id)[3]
+
                 # vwLength = D[v] + graph.edge_data(edge_id)
                 if w in D:
                     if vwLength < D[w]:
