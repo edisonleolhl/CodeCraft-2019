@@ -52,7 +52,7 @@ def main():
     # print(graph.forw_bfs(4))
     # print(graph.out_degree(1))
     # print(graph.tail(1))
-    # print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 1, 4)))
+    print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 4, 5)))
     # for node in graph.iterdfs(1, 4):
     #     print(node)
     # print(algo.ksp_yen(graph, 1, 4, 4))

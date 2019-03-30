@@ -34,7 +34,7 @@ class ROAD(object):
     def __repr__(self):
         return '<Road id: %s, from_: %s, to: %s, length: %s, speed: %s, channel: %s, isDuplex: %s>\n' \
                %(self.id, self.from_, self.to, self.length, self.speed, self.channel, self.isDuplex)
-cross_number = 100
+cross_number = 144
 sqrt = int(numpy.sqrt(cross_number))
 
 cross_object_dict = collections.OrderedDict() # dictionary remains sorted based on insertion sequence
@@ -113,14 +113,14 @@ with open(road_path, 'w') as road_file:
                         str(road_object.isDuplex) + ')\n')
 with open(car_path, 'w') as car_file:
     car_file.write('#(id,from,to,speed,planTime)\n')
-    for car_id in range(10000, 50960):
+    for car_id in range(10000, 91920):
         from_ = int(random.random() * 100) + 1
         to = int(random.random() * 100) + 1
         while to == from_:
             to = int(random.random() * 100) + 1
         speed = 2*(int(random.random() * 3) + 2)
         planTime = int(random.random() * 100) + 1
-        if car_id == 50959:
+        if car_id == 91919:
             car_file.write('(' + str(car_id) + ', ' + str(from_) + ', ' +
                         str(to) + ', ' + str(speed) + ', ' +
                         str(planTime) + ')')
