@@ -12,4 +12,4 @@ then
 fi
 
 rm -f CodeCraft_code.tar.gz
-tar -zcPf CodeCraft_code.tar.gz * --exclude=venv
+tar -zcPf CodeCraft_code.tar.gz * --exclude=CodeCraft-2019/src/__pycache__ --exclude=CodeCraft-2019/src/simulator1.py --exclude=CodeCraft-2019/src/MapGenerator.py --exclude=CodeCraft-2019/src/test.py --exclude=CodeCraft-2019/DIY
