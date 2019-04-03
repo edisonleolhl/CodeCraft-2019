@@ -29,9 +29,10 @@ def main():
     # print("answer_path is %s" % (answer_path))
 
     penaltyFactor = 40
-    interval = 30
+    interval = 15
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
     car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
