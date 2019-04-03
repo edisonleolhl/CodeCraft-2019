@@ -1,6 +1,7 @@
 #-*- encoding=utf8 -*-
 import sys
 import numpy as np
+import cv2 as cv
 
 np.random.seed(951105)
 
@@ -537,7 +538,7 @@ class CROSS(object):
         return self.mapX,self.mapY
 
 class simulation(object):
-    def __init__(self, carInfo, roadInfo, crossInfo, answerInfo):
+    def __init__(self, carInfo, roadInfo, crossInfo, answer_info, preset_answer_info):
         self.dead = False
         global CARDISTRIBUTION, CARNAMESPACE, ROADNAMESPACE, CROSSNAMESPACE, CROSSDICT, CARDICT, ROADDICT
         CARDISTRIBUTION = [0, 0, 0]
@@ -553,7 +554,7 @@ class simulation(object):
         # create car objects
         # line = (id,from,to,speed,planTime)
         for line in carInfo:
-            id_, from_, to_, speed_, planTime_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            id_, from_, to_, speed_, planTime_, priority_, preset_ = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
             CARNAMESPACE.append(int(id_))
             CARDICT[int(id_)] = CAR(int(id_), int(from_), int(to_), int(speed_), int(planTime_))
         # create road objects
@@ -573,7 +574,7 @@ class simulation(object):
         # car route initialize
         # line = (id,startTime,route)
         count = 0
-        for i, line in enumerate(answerInfo):
+        for i, line in enumerate(answer_info):
             if line.strip() == '':
                 break
             line = line.strip()[1:-1].split(',')
@@ -582,7 +583,16 @@ class simulation(object):
             route = [int(roadId) for roadId in line[2:]]
             CARDICT[carId].simulateInit(planTime_, route)
             count += 1
+        for i, line in enumerate(preset_answer_info):
+            carId = line[0]
+            planTime_ = line[1]
+            route = [roadId for roadId in line[2:]]
+            CARDICT[carId].simulateInit(planTime_, route)
+            count += 1
         print("There are %d cars' route preinstalled" % count)
+        print("Car number: %d" %CARNAMESPACE.__len__())
+        print("Cross number: %d" %CROSSNAMESPACE.__len__())
+        print("Road number: %d" %ROADNAMESPACE.__len__())
         CARDISTRIBUTION[0] = CARNAMESPACE.__len__()
         # **** cross initialization ****#
         for carId in CARNAMESPACE:
@@ -593,6 +603,7 @@ class simulation(object):
     def step(self):
         if TIME[0] % 200 == 0:
             print("time:%d"%TIME[0])
+            print("cars in carport: %d, on the road: %d, finish trip: %d" %(CARDISTRIBUTION[0], CARDISTRIBUTION[1], CARDISTRIBUTION[2]))
         for crossId in CROSSNAMESPACE:
             CROSSDICT[crossId].setDone(False)
         # print("pre-movement...")
