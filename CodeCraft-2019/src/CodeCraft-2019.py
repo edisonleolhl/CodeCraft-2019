@@ -27,20 +27,17 @@ def main():
     logging.info("preset_answer_path is %s" % (preset_answer_path))
     logging.info("answer_path is %s" % (answer_path))
     # print("answer_path is %s" % (answer_path))
-    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
-    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
-    # car_list = sorted(car_list, key=lambda x: x[-2]) # priority car scheduled first
-    # car_list = sorted(car_list, key=lambda x: (x[-1], x[-2])) # first sort planTime(first car scheduled first), then sort speed(slow car scheduled first)
 
     penaltyFactor = 40
-    interval = 20
-    # if len(cross_list) == 143: # for map 1
-    #     penaltyFactor = 40
-    #     interval = 66
-    # else:
-    #     penaltyFactor = 150 # for map 2
-    #     interval = 71
+    interval = 30
+
+    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
+    car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
+    # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
+    # car_list = sorted(car_list, key=lambda x: x[-2]) # priority car scheduled first
+    # car_list = sorted(car_list, key=lambda x: (x[-1], x[-2])) # first sort planTime(first car scheduled first), then sort speed(slow car scheduled first)
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
@@ -122,6 +119,27 @@ def initMap(graph, road_list, cross_list):
             graph.add_edge(road[5], road[4], (int(road[0]), int(road[1]), int(road[2]), int(road[3])))
     return graph
 
+def chooseDepartTimeForNonPresetCar(car_list, interval):
+    non_preset_index = 0
+    for i in range(car_list.__len__()):
+        if car_list[i][-1] == 0:
+            depart_time = car_list[i][4] # depart_time = planTime
+            depart_time += non_preset_index // interval
+            car_list[i][4] = depart_time
+            non_preset_index += 1
+    return car_list
+
+# 'planTime' of the preset car in car.txt is replaced by the preset 'time' in presetAnswer.txt
+def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
+    # {car_id: time}
+    preset_time_dict = {}
+    for preset_answer in preset_answer_list:
+        preset_time_dict[preset_answer[0]] = preset_answer[1]
+    for i in range(car_list.__len__()):
+        if car_list[i][-1] == 1:
+            car_list[i][4] = preset_time_dict[car_list[i][0]]
+    return car_list
+
 # search ALL route of graph,
 # def searchRoute(graph):
 #     # FOR DEBUG
@@ -182,7 +200,7 @@ def initMap(graph, road_list, cross_list):
 # if car number < node^2 (approximataly), calling findRouteForCar func is faster than chooseRouteForCar
 # BUT, this is real penalty, which means this func could return more 'average' results
 def findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor):
-    # FOR DEBUGG
+    # FOR DEBUG
     # road_count = {}
     # for edge_id in graph.edge_list():
     #     road_id = graph.edge_data(edge_id)[0]
@@ -233,7 +251,7 @@ def findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor):
             preset_route = preset_route_dict[car[0]]
             for road_id in preset_route:
                 edge_id = edge_data_dict[road_id]
-                new_length = graph.edge_data(edge_id)[1] + penaltyFactor  # PENALTY
+                new_length = graph.edge_data(edge_id)[1] + penaltyFactor*2  # PENALTY
                 new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
     # FOR DEBUG
@@ -261,17 +279,18 @@ def changeWeightByPreset(graph, preset_answer_list, penaltyFactor):
 # generate answerInfo
 def generateAnswer(route_dict, car_list, interval):
     answer_info = []
-    i = 0
+    # i = 0
     # for i in range(len(car_list)):
     for car in car_list:
         if car[-1] == 1:
+            # i += 1
             continue
         route = route_dict[car[0]]
         route = str(route).strip('[').strip(']')
         car_id = car[0]
         plan_time = car[4]
         # speed = car[-2]
-        car_depart_time = plan_time
+        depart_time = plan_time
         # if speed == 2:
         #     car_depart_time = plan_time
         # elif speed == 4:
@@ -280,9 +299,9 @@ def generateAnswer(route_dict, car_list, interval):
         #     car_depart_time = plan_time
         # elif speed == 8:
         #     car_depart_time = plan_time
-        car_depart_time += i // interval
-        i += 1
-        answer_info.append('(' + str(car_id) + ', ' + str(car_depart_time) + ', ' + str(route) + ')')
+        # car_depart_time += i // interval
+        # i += 1
+        answer_info.append('(' + str(car_id) + ', ' + str(depart_time) + ', ' + str(route) + ')')
     return answer_info
 
 
