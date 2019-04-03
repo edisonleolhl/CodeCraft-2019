@@ -29,12 +29,12 @@ def main():
     # print("answer_path is %s" % (answer_path))
 
     penaltyFactor = 40
-    interval = 15
+    interval = 30
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
-    car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
     car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
     # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
     # car_list = sorted(car_list, key=lambda x: x[-2]) # priority car scheduled first
@@ -46,7 +46,7 @@ def main():
     route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
     # route_list = chooseRouteForCar(graph, car_list)
 
-    carInfo = open(car_path, 'r').read().split('\n')[1:]
+    carInfo = open(car_path,  'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
@@ -125,9 +125,17 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
     for i in range(car_list.__len__()):
         if car_list[i][-1] == 0:
             depart_time = car_list[i][4] # depart_time = planTime
-            depart_time += non_preset_index // interval
+            # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
+            # preset route may be overload among some roads, when preset cars finish trip, speed up departure
+            if (non_preset_index // interval) < 1000:
+                depart_time += non_preset_index // interval
+            else:
+                depart_time += 1000 + (non_preset_index-1000*interval) // int((interval*2))
+            # depart_time += non_preset_index // interval
+            # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
             non_preset_index += 1
+    print(car_list)
     return car_list
 
 # 'planTime' of the preset car in car.txt is replaced by the preset 'time' in presetAnswer.txt
