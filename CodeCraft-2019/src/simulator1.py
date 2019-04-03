@@ -622,7 +622,7 @@ class simulation(object):
                 if cross.__update__() or cross.__done__():
                     self.dead = False
             unfinishedCross = nextCross
-            assert self.dead is False, print("dead lock in", unfinishedCross)
+            assert self.dead is False, print("time:%d, dead lock in cross: %s" %(TIME[0], unfinishedCross))
         # print("car pulling away from carport")
         for i in range(CROSSNAMESPACE.__len__()):
             crossId = CROSSNAMESPACE[i]

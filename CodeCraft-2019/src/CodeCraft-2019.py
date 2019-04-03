@@ -3,7 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-from simulator1 import *
+# from simulator1 import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -32,7 +32,7 @@ def main():
     interval = 30
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
+    car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # priority car scheduled first
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
     car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
@@ -46,17 +46,17 @@ def main():
     route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
     # route_list = chooseRouteForCar(graph, car_list)
 
-    carInfo = open(car_path,  'r').read().split('\n')[1:]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    # carInfo = open(car_path,  'r').read().split('\n')[1:]
+    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
     answer_info = generateAnswer(route_dict, car_list, interval)
-    preset_answer_info = generatePresetAnswer(preset_answer_path)
+    # preset_answer_info = generatePresetAnswer(preset_answer_path)
     writeFiles(answer_info, answer_path)
 
-    simulate = simulation(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    time = simulate.simulate()
-    print('Current schedule time: %d' %time)
+    # simulate = simulation(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    # time = simulate.simulate()
+    # print('Current schedule time: %d' %time)
 
 #
 # to read input file
@@ -127,15 +127,15 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
             depart_time = car_list[i][4] # depart_time = planTime
             # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
             # preset route may be overload among some roads, when preset cars finish trip, speed up departure
-            if (non_preset_index // interval) < 1000:
+            if (non_preset_index // interval) < 850:
                 depart_time += non_preset_index // interval
             else:
-                depart_time += 1000 + (non_preset_index-1000*interval) // int((interval*2))
+                depart_time += 850 + (non_preset_index-850*interval) // 90
             # depart_time += non_preset_index // interval
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
             non_preset_index += 1
-    print(car_list)
+    print(car_list[i])
     return car_list
 
 # 'planTime' of the preset car in car.txt is replaced by the preset 'time' in presetAnswer.txt
