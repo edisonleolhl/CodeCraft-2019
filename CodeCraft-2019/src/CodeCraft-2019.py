@@ -3,7 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-# from Scheduler import *
+from Scheduler import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -29,16 +29,24 @@ def main():
     # print("answer_path is %s" % (answer_path))
 
     penaltyFactor = 40
-    interval = 30
+    interval = 28
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
+    # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
+    preset = [x for x in car_list if x[6] == 1]
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+
+    # priority cars depart first, then non-priority cars depart
+    priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
+    non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
+    priority_non_preset = sorted(priority_non_preset, key=lambda x: x[4])
+    non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
+    car_list = priority_non_preset + non_priority_non_preset #
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
-    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for both preset and non-preset cars
-    # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
-    # car_list = sorted(car_list, key=lambda x: x[-2]) # priority car scheduled first
-    # car_list = sorted(car_list, key=lambda x: (x[-1], x[-2])) # first sort planTime(first car scheduled first), then sort speed(slow car scheduled first)
+    # merge non-preset cars and preset cars into car_list
+    car_list.extend(preset)
+    # sort car_list in ascending depart_time, so that dynamic penayty works
+    car_list = sorted(car_list, key=lambda x: x[4])
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
@@ -51,12 +59,12 @@ def main():
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
     answer_info = generateAnswer(route_dict, car_list, interval)
-    # preset_answer_info = generatePresetAnswer(preset_answer_path)
+    preset_answer_info = generatePresetAnswer(preset_answer_path)
     writeFiles(answer_info, answer_path)
 
-    # scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    # time = scheduler.schedule()
-    # print('Current schedule time: %d' %time)
+    scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    time = scheduler.schedule()
+    print('Current schedule time: %d' %time)
 
 #
 # to read input file
@@ -130,7 +138,7 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
             if (non_preset_index // interval) < 850:
                 depart_time += non_preset_index // interval
             else:
-                depart_time += 850 + (non_preset_index-850*interval) // 90
+                depart_time += 850 + (non_preset_index-850*interval) // 95
             # depart_time += non_preset_index // interval
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
@@ -206,8 +214,10 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
 #     return route_list
 
 
-# if car number < node^2 (approximataly), calling findRouteForCar func is faster than chooseRouteForCar
-# BUT, this is real penalty, which means this func could return more 'average' results
+# This func uses dynamic penalty!
+# NOTE:
+#   if car number < node^2 (approximataly), calling findRouteForCar func is faster than chooseRouteForCar
+#   BUT, this is real penalty, which means this func could return more 'average' results
 def findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor):
     # FOR DEBUG
     # road_count = {}
