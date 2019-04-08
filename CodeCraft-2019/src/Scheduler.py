@@ -479,34 +479,151 @@ class Cross(object):
     def direction(self, providerId, receiverId):
         return self.directionMap[providerId][receiverId]
 
-    def setLoc(self, x, y):
-        self.x, self.y = x, y
-
-    def setMapLoc(self, mapX, mapY):
-        self.mapX, self.mapY = mapX, mapY
-
-    def roadDirection(self, roadId):
-        if self.direction_list[0] == roadId:
-            return 0
-        elif self.direction_list[1] == roadId:
-            return 1
-        elif self.direction_list[2] == roadId:
-            return 2
-        elif self.direction_list[3] == roadId:
-            return 3
-        else:
-            return -1
-
-    def __loc__(self):
-        return self.x, self.y
-
-    def __mapLoc__(self):
-        return self.mapX, self.mapY
-
 
 class Scheduler(object):
-    def __init__(self):
+    def __init__(self, carInfo, roadInfo, crossInfo, answer_info, preset_answer_info):
         self.dead = False
+        global TIME, allScheduleTime, priScheduleTime, allPriScheduleTime
+        global remainingPriCnt, speedParams, planTimeParams, diffSrc, diffDst, factor
+        global priority_car_list, car_distribution, car_id_list, road_id_list, cross_id_list
+        global cross_dict, car_dict, road_dict
+
+        TIME = [0]
+        allScheduleTime = [0]
+        priScheduleTime = [0]
+        allPriScheduleTime = [0]
+
+        remainingPriCnt = [0, 1]  # second element '1' means continue counting, '0' means finish counting
+        speedParams = [0, 100, 0, 100]  # highest speed, lowest speed, highest speed of pri, lowest speed of pri
+        planTimeParams = [0, 10000000, 0, 10000000]  # latest, earliest, latest of pri, earliest of pri
+        diffSrc = [{}, {}]  # allCarDict, priCarDict, the key of dict is cross_id, key is unique in dict
+        diffDst = [{}, {}]  # allCarDict, priCarDict
+        factor = [0, 0]
+
+        priority_car_list = []
+        car_distribution = [0, 0, 0]
+        car_id_list, road_id_list, cross_id_list = [], [], []
+        cross_dict, car_dict, road_dict = {}, {}, {}
+
+        for line in carInfo:
+            id, from_, to, speed, planTime, priority, preset = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            # id, from_, to, speed, planTime = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+
+            # presetOnly
+            # if int(preset_) == 0:
+            #     continue
+            # presetOnly
+
+            if int(priority) == 1:
+                priority_car_list.append(id)
+                remainingPriCnt[0] += 1
+                speedParams[2] = max(speedParams[2], int(speed))
+                speedParams[3] = min(speedParams[3], int(speed))
+                planTimeParams[2] = max(planTimeParams[2], int(planTime))
+                planTimeParams[3] = min(planTimeParams[3], int(planTime))
+                diffSrc[1][to] = None
+                diffDst[1][from_] = None
+
+            speedParams[0] = max(speedParams[0], int(speed))
+            speedParams[1] = min(speedParams[1], int(speed))
+
+            planTimeParams[0] = max(planTimeParams[0], int(planTime))
+            planTimeParams[1] = min(planTimeParams[1], int(planTime))
+
+            diffSrc[0][to] = None
+            diffDst[0][from_] = None
+
+            car_id_list.append(int(id))
+            car_dict[int(id)] = Car(int(id), int(from_), int(to), int(speed), int(planTime), int(priority), int(preset))
+
+        print('speedParams: %s' % speedParams)
+        print('planTimeParams: %s' % planTimeParams)
+        print('allCarDiffSrc: %s, priDiffSrc: %s' % (diffSrc[0].__len__(), diffSrc[1].__len__()))
+        print('allCarDiffDst: %s, priDiffDst: %s' % (diffDst[0].__len__(), diffDst[1].__len__()))
+
+        factor[0] = 0.05 * car_dict.__len__() / remainingPriCnt[0] + \
+                    0.2375 * ((speedParams[0] / speedParams[1]) / (speedParams[2] / speedParams[3])) + \
+                    0.2375 * ((planTimeParams[0] / planTimeParams[1]) / (planTimeParams[2] / planTimeParams[3])) + \
+                    0.2375 * (diffSrc[0].__len__() / diffSrc[1].__len__()) + \
+                    0.2375 * (diffDst[0].__len__() / diffDst[1].__len__())
+
+        factor[1] = 0.8 * car_dict.__len__() / remainingPriCnt[0] + \
+                    0.05 * ((speedParams[0] / speedParams[1]) / (speedParams[2] / speedParams[3])) + \
+                    0.05 * ((planTimeParams[0] / planTimeParams[1]) / (planTimeParams[2] / planTimeParams[3])) + \
+                    0.05 * (diffSrc[0].__len__() / diffSrc[1].__len__()) + \
+                    0.05 * (diffDst[0].__len__() / diffDst[1].__len__())
+
+        print('factor a = %.5f, b= %.5f' % (factor[0], factor[1]))
+
+        for line in roadInfo:
+            id, length, speed, channel, from_, to, isDuplex = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            road_id_list.append(int(id))
+            road_dict[int(id)] = Road(int(id), int(length), int(speed), int(channel), int(from_), int(to),
+                                      int(isDuplex))
+        visitDone = {}
+        for line in crossInfo:
+            id, north, east, south, west = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
+            cross_id_list.append(int(id))
+            visitDone[int(id)] = False
+            cross_dict[int(id)] = [int(north), int(east), int(south), int(west)]
+
+        # DP and DFS adjust directions
+        def DFS(crossId, direction=None, preCrossId=None):
+            if visitDone[crossId]:
+                return
+            visitDone[crossId] = True
+            if preCrossId is not None:
+                for i in range(4):
+                    roadId = cross_dict[crossId][i]
+                    if roadId != -1:
+                        pcId = road_dict[roadId].from_ if road_dict[roadId].from_ != crossId else road_dict[
+                            roadId].to
+                        if pcId == preCrossId:
+                            break
+                shift = ((i + 2) % 4 - direction) % 4
+                for i in range(shift):
+                    cross_dict[crossId] = [cross_dict[crossId][1], cross_dict[crossId][2], cross_dict[crossId][3],
+                                           cross_dict[crossId][0]]
+            for i in range(4):
+                roadId = cross_dict[crossId][i]
+                if roadId != -1:
+                    nextCrossId = road_dict[roadId].from_ if road_dict[roadId].from_ != crossId else road_dict[
+                        roadId].to
+                    DFS(nextCrossId, i, crossId)
+
+        DFS(cross_id_list[0])
+        for crossId in cross_id_list:
+            north, east, south, west = cross_dict[crossId]
+            cross_dict[crossId] = Cross(crossId, north, east, south, west)
+        count = 0
+
+        # presetOnly
+        for i, line in enumerate(answer_info):
+            if line.__len__() < 3:
+                continue
+            if line[0] == '#':
+                continue
+            line = line.strip()[1:-1].split(',')
+            carId = int(line[0])
+            depart_time = int(line[1])
+            route = [int(roadId) for roadId in line[2:]]
+            car_dict[carId].scheduleInit(depart_time, route)
+            count += 1
+        # presetOnly
+
+        for i, line in enumerate(preset_answer_info):
+            carId = line[0]
+            depart_time = line[1]
+            route = [roadId for roadId in line[2:]]
+            car_dict[carId].scheduleInit(depart_time, route)
+            count += 1
+        car_distribution[0] = count
+        print("There are %d cars' route preinstalled" % count)
+
+        for carId in car_id_list:
+            cross_dict[car_dict[carId].from_].garageInit(car_dict[carId].depart_time, carId)
+        car_id_list.sort()
+        cross_id_list.sort()
 
     def step(self):
         if TIME[0] % 200 == 0:
@@ -543,11 +660,8 @@ class Scheduler(object):
             cross_dict[crossId].driveCarInGarage()
 
     def schedule(self):
-        visualize = visualization()
-        visualize.crossLocGen()
         while True:
             self.step()
-            # visualize.drawMap()
             if car_distribution[2] == car_id_list.__len__():
                 print('%d cars have been scheduled' % car_distribution[2])
                 print('priScheduleTime: %d, allPriScheduleTime: %d' % (priScheduleTime[0], allPriScheduleTime[0]))
@@ -555,329 +669,9 @@ class Scheduler(object):
                 JudgeTime = factor[0]*priScheduleTime[0] + TIME[0]
                 JudgeTotalTime = factor[1]*allPriScheduleTime[0] + allScheduleTime[0]
                 print('JudgeTime: %d, JudgeTotalTime: %d' % (JudgeTime, JudgeTotalTime))
-
-                break
+                return TIME[0]
             if self.dead:
                 break
             TIME[0] += 1
 
 
-class visualization(object):
-    def __init__(self):
-        self.maxX, self.maxY = 0, 0
-        self.savePath = 'training2'
-        # ** cross param **#
-        self.crossRadius = 14
-        self.crossDistance = 150
-        self.crossColor = [25, 200, 0]
-        # ** road param **#
-        self.roadColor = [0, 0, 0]  # black
-        self.roadLineType = 4
-        self.channelWidth = 5
-        self.channelDistance = 3
-        self.lineWidth = 2
-        self.time = 0
-
-    #
-    # cross location gen
-    #
-    def crossLocGen(self):
-        # **** relative location ****#
-        # denote the first cross as the origin of coordinates
-        for crossId in cross_id_list:
-            cross_dict[crossId].done = False
-        crossList = [cross_id_list[0]]
-        minX, minY = 0, 0
-        while (crossList.__len__() > 0):
-            nextCrossList = []
-            for crossId in crossList:
-                presentX, presntY = cross_dict[crossId].__loc__()
-                validRoad = cross_dict[crossId].validRoad
-                for roadId in validRoad:
-                    # next cross id
-                    nextCrossId = road_dict[roadId].from_ if road_dict[roadId].from_ != crossId \
-                        else road_dict[roadId].to
-                    # if next cross is visited
-                    if not cross_dict[nextCrossId].done:
-                        # visit sets true
-                        cross_dict[nextCrossId].done = True
-                        # relative location of nextcross
-                        nextX, nextY = self.crossRelativeLoc(presentX, presntY, crossId, roadId)
-                        # update location
-                        cross_dict[nextCrossId].setLoc(nextX, nextY)
-                        minX, minY, self.maxX, self.maxY = \
-                            min(nextX, minX), min(nextY, minY), max(nextX, self.maxX), max(nextY, self.maxY)
-                        nextCrossList.append(nextCrossId)
-            crossList = nextCrossList
-        self.maxX, self.maxY = (self.maxX - minX + 2) * self.crossDistance, (self.maxY - minY + 2) * self.crossDistance
-        for crossId in cross_id_list:
-            x, y = cross_dict[crossId].__loc__()
-            cross_dict[crossId].setLoc(x - minX, y - minY)
-            cross_dict[crossId].setMapLoc((x - minX + 1) * self.crossDistance, (y - minY + 1) * self.crossDistance)
-
-    def crossRelativeLoc(self, x, y, crossId, roadId):
-        roadDirection = cross_dict[crossId].roadDirection(roadId)
-        if roadDirection == 0:
-            return x, y - 1
-        elif roadDirection == 1:
-            return x + 1, y
-        elif roadDirection == 2:
-            return x, y + 1
-        elif roadDirection == 3:
-            return x - 1, y
-        else:
-            print("Cross(%d) don't interact with road(%d)" % (self.id, roadId))
-
-    #
-    # draw functions
-    #
-    def drawMap(self):
-        img = np.ones((self.maxY, self.maxX, 3), np.uint8) * 255
-        # draw road
-        for roadId in road_id_list:
-            self.plotRoad(roadId, img)
-        # draw cross
-        for crossId in cross_id_list:
-            self.plotCross(crossId, img)
-        # plot info
-        self.plotInfo(img)
-        cv.imwrite(self.savePath + '/%d.jpg' % TIME[0], img)
-
-    def plotCross(self, crossId, img):
-        x, y = cross_dict[crossId].__mapLoc__()
-        cv.circle(img, (x, y), self.crossRadius, color=self.crossColor, thickness=-1, lineType=-1)
-        if crossId >= 10:
-            xx, yy = int(x - 4 * self.crossRadius / 5), int(y + self.crossRadius / 2)
-        else:
-            xx, yy = int(x - self.crossRadius / 2), int(y + self.crossRadius / 2)
-        cv.putText(img, str(crossId), (xx, yy), cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 0, 255], 2)
-
-    def plotRoad(self, roadId, img):
-        # get road info
-        road = road_dict[roadId]
-        fromX, fromY = cross_dict[road.from_].__mapLoc__()
-        toX, toY = cross_dict[road.to].__mapLoc__()
-        # plot line
-        cv.line(img, (fromX, fromY), (toX, toY), color=self.roadColor, thickness=2)
-        # plot bucket
-        self.drawBucket(road, 'forward', img)
-        if road.isDuplex:
-            self.drawBucket(road, 'backward', img)
-
-    def drawBucket(self, road, lane, img):
-        bucket = road.forwardBucket if lane != 'backward' else road.backwardBucket
-        length = road.length
-        channel = road.channel
-        fromX, fromY = cross_dict[road.from_].__mapLoc__()
-        toX, toY = cross_dict[road.to].__mapLoc__()
-        XY, intervalXY, rectangleSize, channel2XY, length2XY = self.bucketDrawInitial(fromX, fromY, toX, toY, lane,
-                                                                                      length)
-        for i in range(length):
-            for j in range(channel):
-                xRD, yRD = int(XY[0] + rectangleSize[0]), int(XY[1] + rectangleSize[1])
-                if bucket[i][j] is None:
-                    cv.rectangle(img, (int(XY[0]), int(XY[1])), (xRD, yRD), (0, 0, 0), 1)
-                else:
-                    color = car_dict[bucket[i][j]].carColor
-                    cv.rectangle(img, (int(XY[0]), int(XY[1])), (xRD, yRD), color=color, thickness=-1)
-                XY[channel2XY] = XY[channel2XY] + intervalXY[channel2XY]
-            XY[channel2XY] = XY[channel2XY] - intervalXY[channel2XY] * channel
-            XY[length2XY] = XY[length2XY] + intervalXY[length2XY]
-
-    def bucketDrawInitial(self, fromX, fromY, toX, toY, lane, length):
-        direction = self.bucketDirection(fromX, fromY, toX, toY, lane)
-        unitLength = (self.crossDistance - self.crossRadius * 4) / length
-        if lane == 'backward':
-            toY = fromY
-            toX = fromX
-        if direction == 'north':
-            XY = [fromX + self.channelDistance, toY + self.crossRadius * 2]
-            intervalXY = self.channelDistance + self.channelWidth, unitLength
-            rectangleSize = self.channelWidth, unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'south':
-            XY = [fromX - self.channelDistance - self.channelWidth, toY - self.crossRadius * 2 - unitLength]
-            intervalXY = -(self.channelDistance + self.channelWidth), -unitLength
-            rectangleSize = self.channelWidth, unitLength
-            channel2XY, length2XY = 0, 1
-        elif direction == 'east':
-            XY = [toX - self.crossRadius * 2 - unitLength, fromY + self.channelDistance]
-            intervalXY = -unitLength, self.channelDistance + self.channelWidth
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        elif direction == 'west':
-            XY = [toX + self.crossRadius * 2, fromY - self.channelDistance - self.channelWidth]
-            intervalXY = unitLength, -(self.channelDistance + self.channelWidth)
-            rectangleSize = unitLength, self.channelWidth
-            channel2XY, length2XY = 1, 0
-        return XY, intervalXY, rectangleSize, channel2XY, length2XY
-
-    def bucketDirection(self, fromX, fromY, toX, toY, lane):
-        if fromY > toY:
-            direction = 'north' if lane == 'forward' else 'south'
-        elif fromY < toY:
-            direction = 'south' if lane == 'forward' else 'north'
-        elif fromX < toX:
-            direction = 'east' if lane == 'forward' else 'west'
-        else:
-            direction = 'west' if lane == 'forward' else 'east'
-        return direction
-
-    def plotInfo(self, img):
-        for crossId in cross_id_list:
-            cross = cross_dict[crossId]
-            x, y = cross.__mapLoc__()
-            cn, fn = cross.garageCarNum, cross.finishCarNum
-            cv.putText(img, "%d,%d" % (cn, fn), (int(x), int(y - 1.1 * self.crossRadius)), \
-                       cv.FONT_HERSHEY_SIMPLEX, 0.4, [0, 0, 255], 1)
-        cv.putText(img, "in the garage:%d,on the road:%d,end of the trip:%d" % (
-            car_distribution[0], car_distribution[1], car_distribution[2]), (30, 30), \
-                   cv.FONT_HERSHEY_SIMPLEX, 0.6, [0, 0, 255], 2)
-
-
-def main():
-    car_path = sys.argv[1]
-    road_path = sys.argv[2]
-    cross_path = sys.argv[3]
-    preset_answer_path = sys.argv[4]
-    answer_path = sys.argv[5]
-
-    carInfo = open(car_path, 'r').read().split('\n')[1:]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    answerInfo = open(answer_path, 'r').read().split('\n')
-
-    preset_answer_info = []
-    with open(preset_answer_path, 'r') as preset_answer_file:
-        for preset_answer in preset_answer_file.readlines():
-            if preset_answer.startswith('#'):
-                continue
-            preset_answer = preset_answer.replace(' ', '').replace('(', '').replace(')', '').strip().split(',')
-            preset_answer = [int(x) for x in preset_answer]
-            preset_answer_info.append(preset_answer)
-
-    for line in carInfo:
-        id, from_, to, speed, planTime, priority, preset = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        # id, from_, to, speed, planTime = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-
-        # presetOnly
-        # if int(preset_) == 0:
-        #     continue
-        # presetOnly
-
-        if int(priority) == 1:
-            priority_car_list.append(id)
-            remainingPriCnt[0] += 1
-            speedParams[2] = max(speedParams[2], int(speed))
-            speedParams[3] = min(speedParams[3], int(speed))
-            planTimeParams[2] = max(planTimeParams[2], int(planTime))
-            planTimeParams[3] = min(planTimeParams[3], int(planTime))
-            diffSrc[1][to] = None
-            diffDst[1][from_] = None
-
-        speedParams[0] = max(speedParams[0], int(speed))
-        speedParams[1] = min(speedParams[1], int(speed))
-
-        planTimeParams[0] = max(planTimeParams[0], int(planTime))
-        planTimeParams[1] = min(planTimeParams[1], int(planTime))
-
-        diffSrc[0][to] = None
-        diffDst[0][from_] = None
-
-
-        car_id_list.append(int(id))
-        car_dict[int(id)] = Car(int(id), int(from_), int(to), int(speed), int(planTime), int(priority), int(preset))
-
-    print('speedParams: %s' % speedParams)
-    print('planTimeParams: %s' % planTimeParams)
-    print('allCarDiffSrc: %s, priDiffSrc: %s' % (diffSrc[0].__len__(), diffSrc[1].__len__()))
-    print('allCarDiffDst: %s, priDiffDst: %s' % (diffDst[0].__len__(), diffDst[1].__len__()))
-
-    factor[0] = 0.05*car_dict.__len__()/remainingPriCnt[0] + \
-                0.2375*((speedParams[0]/speedParams[1])/(speedParams[2]/speedParams[3])) + \
-                0.2375*((planTimeParams[0]/planTimeParams[1])/(planTimeParams[2]/planTimeParams[3])) + \
-                0.2375*(diffSrc[0].__len__()/diffSrc[1].__len__()) + \
-                0.2375*(diffDst[0].__len__()/diffDst[1].__len__())
-
-    factor[1] = 0.8*car_dict.__len__()/remainingPriCnt[0] + \
-                0.05*((speedParams[0]/speedParams[1])/(speedParams[2]/speedParams[3])) + \
-                0.05*((planTimeParams[0]/planTimeParams[1])/(planTimeParams[2]/planTimeParams[3])) + \
-                0.05*(diffSrc[0].__len__()/diffSrc[1].__len__()) + \
-                0.05*(diffDst[0].__len__()/diffDst[1].__len__())
-
-    print('factor a = %.5f, b= %.5f' % (factor[0], factor[1]))
-
-    for line in roadInfo:
-        id, length, speed, channel, from_, to, isDuplex = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        road_id_list.append(int(id))
-        road_dict[int(id)] = Road(int(id), int(length), int(speed), int(channel), int(from_), int(to),
-                                  int(isDuplex))
-    visitDone = {}
-    for line in crossInfo:
-        id, north, east, south, west = line.replace(' ', '').replace('\t', '')[1:-1].split(',')
-        cross_id_list.append(int(id))
-        visitDone[int(id)] = False
-        cross_dict[int(id)] = [int(north), int(east), int(south), int(west)]
-
-    # DP and DFS adjust directions
-    def DFS(crossId, direction=None, preCrossId=None):
-        if visitDone[crossId]:
-            return
-        visitDone[crossId] = True
-        if preCrossId is not None:
-            for i in range(4):
-                roadId = cross_dict[crossId][i]
-                if roadId != -1:
-                    pcId = road_dict[roadId].from_ if road_dict[roadId].from_ != crossId else road_dict[
-                        roadId].to
-                    if pcId == preCrossId:
-                        break
-            shift = ((i + 2) % 4 - direction) % 4
-            for i in range(shift):
-                cross_dict[crossId] = [cross_dict[crossId][1], cross_dict[crossId][2], cross_dict[crossId][3],
-                                       cross_dict[crossId][0]]
-        for i in range(4):
-            roadId = cross_dict[crossId][i]
-            if roadId != -1:
-                nextCrossId = road_dict[roadId].from_ if road_dict[roadId].from_ != crossId else road_dict[roadId].to
-                DFS(nextCrossId, i, crossId)
-
-    DFS(cross_id_list[0])
-    for crossId in cross_id_list:
-        north, east, south, west = cross_dict[crossId]
-        cross_dict[crossId] = Cross(crossId, north, east, south, west)
-    count = 0
-
-    # presetOnly
-    for i, line in enumerate(answerInfo):
-        if line.__len__() < 3:
-            continue
-        if line[0] == '#':
-            continue
-        line = line.strip()[1:-1].split(',')
-        carId = int(line[0])
-        depart_time = int(line[1])
-        route = [int(roadId) for roadId in line[2:]]
-        car_dict[carId].scheduleInit(depart_time, route)
-        count += 1
-    # presetOnly
-
-    for i, line in enumerate(preset_answer_info):
-        carId = line[0]
-        depart_time = line[1]
-        route = [roadId for roadId in line[2:]]
-        car_dict[carId].scheduleInit(depart_time, route)
-        count += 1
-    car_distribution[0] = count
-    print("There are %d cars' route preinstalled" % count)
-
-    for carId in car_id_list:
-        cross_dict[car_dict[carId].from_].garageInit(car_dict[carId].depart_time, carId)
-    car_id_list.sort()
-    cross_id_list.sort()
-    schedule = Scheduler()
-    schedule.schedule()
-
-
-if __name__ == "__main__":
-    main()

@@ -3,7 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-# from simulator1 import *
+from Scheduler import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -32,10 +32,10 @@ def main():
     interval = 30
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # priority car scheduled first
+    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
-    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first
+    car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for both preset and non-preset cars
     # car_list = sorted(car_list, key=lambda x: x[-2], reverse=True) # fast car scheduled first
     # car_list = sorted(car_list, key=lambda x: x[-2]) # priority car scheduled first
     # car_list = sorted(car_list, key=lambda x: (x[-1], x[-2])) # first sort planTime(first car scheduled first), then sort speed(slow car scheduled first)
@@ -46,17 +46,17 @@ def main():
     route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
     # route_list = chooseRouteForCar(graph, car_list)
 
-    # carInfo = open(car_path,  'r').read().split('\n')[1:]
-    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    carInfo = open(car_path,  'r').read().split('\n')[1:]
+    roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
     answer_info = generateAnswer(route_dict, car_list, interval)
-    # preset_answer_info = generatePresetAnswer(preset_answer_path)
+    preset_answer_info = generatePresetAnswer(preset_answer_path)
     writeFiles(answer_info, answer_path)
 
-    # simulate = simulation(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    # time = simulate.simulate()
-    # print('Current schedule time: %d' %time)
+    scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    time = scheduler.schedule()
+    print('Current schedule time: %d' %time)
 
 #
 # to read input file
