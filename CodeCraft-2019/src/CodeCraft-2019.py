@@ -3,7 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-from Scheduler import *
+# from Scheduler import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -29,7 +29,7 @@ def main():
     # print("answer_path is %s" % (answer_path))
 
     penaltyFactor = 40
-    interval = 28
+    interval = 20
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -43,14 +43,23 @@ def main():
     non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
     car_list = priority_non_preset + non_priority_non_preset #
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
+
+    with open('non_preset_depart_time.txt', 'w') as f:
+        for car in car_list:
+            f.writelines(str(car) + '\n')
+
     # merge non-preset cars and preset cars into car_list
     car_list.extend(preset)
-    # sort car_list in ascending depart_time, so that dynamic penayty works
+    # sort car_list in ascending depart_time, so that dynamic penalty works
     car_list = sorted(car_list, key=lambda x: x[4])
+
+    with open('all_depart_time.txt', 'w') as f:
+        for car in car_list:
+            f.writelines(str(car) + '\n')
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
-    # graph = changeWeightByPreset(graph, preset_answer_list, penaltyFactor)
+    graph = changeWeightByPreset(graph, preset_answer_list, penaltyFactor)
     route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
     # route_list = chooseRouteForCar(graph, car_list)
 
@@ -59,12 +68,12 @@ def main():
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
     answer_info = generateAnswer(route_dict, car_list, interval)
-    preset_answer_info = generatePresetAnswer(preset_answer_path)
+    # preset_answer_info = generatePresetAnswer(preset_answer_path)
     writeFiles(answer_info, answer_path)
 
-    scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    time = scheduler.schedule()
-    print('Current schedule time: %d' %time)
+    # scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    # time = scheduler.schedule()
+    # print('Current schedule time: %d' %time)
 
 #
 # to read input file
@@ -135,10 +144,24 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
             depart_time = car_list[i][4] # depart_time = planTime
             # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
             # preset route may be overload among some roads, when preset cars finish trip, speed up departure
+            # if (non_preset_index // interval) < 850:
+            #     depart_time += non_preset_index // interval
+            # else:
+            #     depart_time += 850 + (non_preset_index-850*interval) // 76
+
             if (non_preset_index // interval) < 850:
-                depart_time += non_preset_index // interval
+                if non_preset_index // interval >= depart_time:
+                    depart_time = non_preset_index // interval
+                # depart_time = planTime
+                else:
+                    pass
+                # seperate the depart_time distribution with preset cars depart_time
+                # in 2-map-training-1&2, preset cars depart at 1 or 6
+                if depart_time % 5 == 1:
+                    depart_time += 2
+
             else:
-                depart_time += 850 + (non_preset_index-850*interval) // 95
+                depart_time = 850 + (non_preset_index-850*interval) // 60
             # depart_time += non_preset_index // interval
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
