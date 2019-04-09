@@ -3,7 +3,7 @@ import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
-# from Scheduler import *
+from Scheduler import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -29,7 +29,7 @@ def main():
     # print("answer_path is %s" % (answer_path))
 
     penaltyFactor = 40
-    interval = 20
+    interval = 25
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -68,12 +68,12 @@ def main():
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
 
     answer_info = generateAnswer(route_dict, car_list, interval)
-    # preset_answer_info = generatePresetAnswer(preset_answer_path)
+    preset_answer_info = generatePresetAnswer(preset_answer_path)
     writeFiles(answer_info, answer_path)
 
-    # scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    # time = scheduler.schedule()
-    # print('Current schedule time: %d' %time)
+    scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    time = scheduler.schedule()
+    print('Current schedule time: %d' %time)
 
 #
 # to read input file
@@ -161,7 +161,7 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
                     depart_time += 2
 
             else:
-                depart_time = 850 + (non_preset_index-850*interval) // 60
+                depart_time = 850 + (non_preset_index-850*interval) // 65
             # depart_time += non_preset_index // interval
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
