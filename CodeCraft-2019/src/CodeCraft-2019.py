@@ -4,6 +4,7 @@ from altgraph import GraphError
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
 from Scheduler import *
+
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -26,10 +27,9 @@ def main():
     logging.info("cross_path is %s" % (cross_path))
     logging.info("preset_answer_path is %s" % (preset_answer_path))
     logging.info("answer_path is %s" % (answer_path))
-    # print("answer_path is %s" % (answer_path))
 
-    penaltyFactor = 40
-    interval = 25
+    penaltyFactor = 80
+    interval = 8
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -44,18 +44,18 @@ def main():
     car_list = priority_non_preset + non_priority_non_preset #
     car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
 
-    with open('non_preset_depart_time.txt', 'w') as f:
-        for car in car_list:
-            f.writelines(str(car) + '\n')
+    # with open('non_preset_depart_time.txt', 'w') as f:
+    #     for car in car_list:
+    #         f.writelines(str(car) + '\n')
 
     # merge non-preset cars and preset cars into car_list
     car_list.extend(preset)
     # sort car_list in ascending depart_time, so that dynamic penalty works
     car_list = sorted(car_list, key=lambda x: x[4])
 
-    with open('all_depart_time.txt', 'w') as f:
-        for car in car_list:
-            f.writelines(str(car) + '\n')
+    # with open('all_depart_time.txt', 'w') as f:
+    #     for car in car_list:
+    #         f.writelines(str(car) + '\n')
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
@@ -63,14 +63,15 @@ def main():
     route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
     # route_list = chooseRouteForCar(graph, car_list)
 
+    answer_info = generateAnswer(route_dict, car_list, interval)
+    writeFiles(answer_info, answer_path)
+
+
+    # ATTENTION: comments code below before submit to online judgement
     carInfo = open(car_path,  'r').read().split('\n')[1:]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-
-    answer_info = generateAnswer(route_dict, car_list, interval)
     preset_answer_info = generatePresetAnswer(preset_answer_path)
-    writeFiles(answer_info, answer_path)
-
     scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
     time = scheduler.schedule()
     print('Current schedule time: %d' %time)
@@ -81,7 +82,6 @@ def main():
 # road_list = [[5000, 10, 5, 1, 1, 2, 1],
 #               ...
 #               [5059, 10, 5, 1, 35, 36, 1]]
-
 def readFiles(car_path, road_path, cross_path, preset_answer_path):
     car_list = []
     road_list = []
@@ -144,6 +144,7 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
             depart_time = car_list[i][4] # depart_time = planTime
             # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
             # preset route may be overload among some roads, when preset cars finish trip, speed up departure
+
             # if (non_preset_index // interval) < 850:
             #     depart_time += non_preset_index // interval
             # else:
@@ -161,7 +162,7 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
                     depart_time += 2
 
             else:
-                depart_time = 850 + (non_preset_index-850*interval) // 65
+                depart_time = 850 + (non_preset_index-850*interval) // 30
             # depart_time += non_preset_index // interval
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
