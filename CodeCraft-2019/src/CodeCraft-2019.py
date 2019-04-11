@@ -29,7 +29,7 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
 
     penaltyFactor = 80
-    interval = 8
+    interval = 9
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -59,9 +59,7 @@ def main():
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
-    graph = changeWeightByPreset(graph, preset_answer_list, penaltyFactor)
-    route_dict = findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor)
-    # route_list = chooseRouteForCar(graph, car_list)
+    route_dict = findRouteForCar(graph, car_list, road_list, preset_answer_list, penaltyFactor)
 
     answer_info = generateAnswer(route_dict, car_list, interval)
     writeFiles(answer_info, answer_path)
@@ -242,7 +240,7 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
 # NOTE:
 #   if car number < node^2 (approximataly), calling findRouteForCar func is faster than chooseRouteForCar
 #   BUT, this is real penalty, which means this func could return more 'average' results
-def findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor):
+def findRouteForCar(graph, car_list, road_list, preset_answer_list, penaltyFactor):
     # FOR DEBUG
     # road_count = {}
     # for edge_id in graph.edge_list():
@@ -273,6 +271,15 @@ def findRouteForCar(graph, car_list, preset_answer_list, penaltyFactor):
         # else:
         #     path = path2
 
+        # all road's edge weight init every 500s
+        if car[4] % 500 == 0:
+            for road in road_list:
+                road_id = road[0]
+                init_length = road[1]
+                edge_id = edge_data_dict[road_id]
+                init_edge_data = (graph.edge_data(edge_id)[0], init_length,
+                                  graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+                graph.update_edge_data(edge_id, init_edge_data)
         # non preset car
         if car[-1] == 0:
             path = algo.shortest_path(graph, car[1], car[2], car[3])
