@@ -31,9 +31,9 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
 
     penaltyFactor = 80
-    departure_rate = 36
-    acc_departure_rate = 30
-    queue_length = 200
+    departure_rate = 38
+    acc_departure_rate = 40
+    queue_length = 100
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -141,6 +141,10 @@ def initMap(graph, road_list, cross_list):
 
 def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate):
     non_preset_index = 0
+
+    interval = 5 # preset car departure interval, for 2-map-training-1&2, interval = 5
+    max_token = departure_rate // (interval - 1)
+    previous_depart_time = None
     for i in range(car_list.__len__()):
         if car_list[i][-1] == 0:
             depart_time = car_list[i][4] # depart_time = planTime
@@ -160,8 +164,23 @@ def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate
                     pass
                 # seperate the depart_time distribution with preset cars depart_time
                 # in 2-map-training-1&2, preset cars depart at 1 or 6
-                if depart_time % 5 == 1:
-                    depart_time += 2
+                if depart_time % interval == 1:
+                    if depart_time != previous_depart_time:
+                        previous_depart_time = depart_time
+                        slot_index = 0
+                        average_flag = False # token has been put into all slots averagely
+                        depart_time += slot_index + 1
+                        slot = [0 for x in range(interval - 1)]
+                        slot[slot_index] += 1
+                    elif not average_flag:
+                        depart_time += slot_index + 1
+                        slot[slot_index] += 1
+                        if slot[slot_index] == max_token:
+                            slot_index += 1
+                        if slot_index == slot.__len__():
+                            average_flag = True
+                    else:
+                        depart_time += interval//2
 
             else:
                 depart_time = 850 + (non_preset_index-850*departure_rate) // acc_departure_rate
@@ -301,6 +320,7 @@ def findRouteForCar(graph, car_list, cross_list, preset_answer_list, penaltyFact
             # new timeslice
             ar_flag = True # start auto regressive
             present_penalty = defaultdict(int) # defaultdict(<class 'int'>, {edge_id: penalty})
+
             # 'Release' penalty of the timeslice 'queue_length' ago, subtract penalty value
             release_penalty = ar_deque.popleft() # release_penalty = {edge_id: penalty, ...}
             for edge_id, p_value in release_penalty.items():
@@ -308,6 +328,23 @@ def findRouteForCar(graph, car_list, cross_list, preset_answer_list, penaltyFact
                 new_edge_data = (graph.edge_data(edge_id)[0], new_length,
                                  graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
+
+            # average factor 0.2 0.4 0.6 0.8 1.0
+            # init all edges
+            # for edge_id in graph.edge_list():
+            #     new_edge_data = (graph.edge_data(edge_id)[0], 0,
+            #                      graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+            #     graph.update_edge_data(edge_id, new_edge_data)
+            # # previous states have less effect on present state
+            # for i, temp_penalty in enumerate(ar_deque):
+            #     for edge_id, p_value in temp_penalty.items():
+            #         new_length = graph.edge_data(edge_id)[1]
+            #         # eg: q=200, divided into 5 groups, each multiplied by 0.2, 0.4, 0.6, 0.8, 1.0
+            #         new_length += p_value * 0.2 * (i//(queue_length//5)+1)
+            #         new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+            #                          graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+            #         graph.update_edge_data(edge_id, new_edge_data)
+
             if depart_time % 200 == 0:
                 print('Present depart_time=%s, release depart_time=%s penalty '
                       %(depart_time, int(depart_time)-queue_length))
@@ -401,6 +438,7 @@ def findRouteForCar(graph, car_list, cross_list, preset_answer_list, penaltyFact
                 graph.update_edge_data(forward_edge, new_edge_data)
 
         if ar_flag:
+            # ar_deque.popleft()
             # ar_deque already popleft, so append present_penalty to the last to maintain ar_deque length
             ar_deque.append(present_penalty)
         else:
