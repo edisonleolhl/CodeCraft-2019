@@ -2,6 +2,8 @@ import logging
 import sys
 from altgraph import GraphError
 from altgraph.Graph import Graph
+from collections import deque
+from collections import defaultdict
 from Algorithms import Algorithms
 from Scheduler import *
 
@@ -29,7 +31,9 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
 
     penaltyFactor = 80
-    interval = 25
+    departure_rate = 36
+    acc_departure_rate = 30
+    queue_length = 200
 
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
@@ -42,7 +46,7 @@ def main():
     priority_non_preset = sorted(priority_non_preset, key=lambda x: x[4])
     non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
     car_list = priority_non_preset + non_priority_non_preset #
-    car_list = chooseDepartTimeForNonPresetCar(car_list, interval)
+    car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate)
 
     # with open('non_preset_depart_time.txt', 'w') as f:
     #     for car in car_list:
@@ -59,9 +63,9 @@ def main():
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
-    route_dict = findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, penaltyFactor)
+    route_dict = findRouteForCar(graph, car_list, cross_list, preset_answer_list, penaltyFactor, queue_length)
 
-    answer_info = generateAnswer(route_dict, car_list, interval)
+    answer_info = generateAnswer(route_dict, car_list)
     writeFiles(answer_info, answer_path)
 
 
@@ -135,7 +139,7 @@ def initMap(graph, road_list, cross_list):
             graph.add_edge(road[5], road[4], (int(road[0]), int(road[1]), int(road[2]), int(road[3])))
     return graph
 
-def chooseDepartTimeForNonPresetCar(car_list, interval):
+def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate):
     non_preset_index = 0
     for i in range(car_list.__len__()):
         if car_list[i][-1] == 0:
@@ -143,14 +147,14 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
             # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
             # preset route may be overload among some roads, when preset cars finish trip, speed up departure
 
-            # if (non_preset_index // interval) < 850:
-            #     depart_time += non_preset_index // interval
+            # if (non_preset_index // departure_rate) < 850:
+            #     depart_time += non_preset_index // departure_rate
             # else:
-            #     depart_time += 850 + (non_preset_index-850*interval) // 76
+            #     depart_time += 850 + (non_preset_index-850*departure_rate) // 76
 
-            if (non_preset_index // interval) < 850:
-                if non_preset_index // interval >= depart_time:
-                    depart_time = non_preset_index // interval
+            if (non_preset_index // departure_rate) < 850:
+                if non_preset_index // departure_rate >= depart_time:
+                    depart_time = non_preset_index // departure_rate
                 # depart_time = planTime
                 else:
                     pass
@@ -160,8 +164,8 @@ def chooseDepartTimeForNonPresetCar(car_list, interval):
                     depart_time += 2
 
             else:
-                depart_time = 850 + (non_preset_index-850*interval) // 30
-            # depart_time += non_preset_index // interval
+                depart_time = 850 + (non_preset_index-850*departure_rate) // acc_departure_rate
+            # depart_time += non_preset_index // departure_rate
             # print("depart_time=%d" %(depart_time))
             car_list[i][4] = depart_time
             non_preset_index += 1
@@ -236,11 +240,10 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
 #     return route_list
 
 
-# This func uses dynamic penalty!
-# NOTE:
-#   if car number < node^2 (approximataly), calling findRouteForCar func is faster than chooseRouteForCar
-#   BUT, this is real penalty, which means this func could return more 'average' results
-def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, penaltyFactor):
+# This func uses dynamic penalty, using Auto Regressive model.
+#
+# Return: non-preset car's route
+def findRouteForCar(graph, car_list, cross_list, preset_answer_list, penaltyFactor, queue_length):
     # FOR DEBUG
     # road_count = {}
     # for edge_id in graph.edge_list():
@@ -273,16 +276,17 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
                 return cross[0]
         return None
 
-    # 4.12 update: Moving Average !!!
+    # 4.12 update: Auto Regressive model !!!
     # Penalty becomes failure when the car get the destination, so 'release' the 'penalty' along the road!
-    # Queue length remains constant, when append to the last, delete the first
-    queue_length = 100
-    ma_list = [None for x in range(queue_length)]
+    # ar_deque keeps all the penalty information, its length indicating continuous timeslice remains constant
+    # ar_deque when append to the last, delete the first
+    # ar_deque = {defaultdict(<class 'int'>, {edge_id: penalty}), defaultdict(<class 'int'>, {edge_id: penalty}), ...}
+    ar_deque = deque([defaultdict(int) for x in range(queue_length)])
+    previous_depart_time = None
 
     algo = Algorithms()
     route_dict = {}
     for car in car_list:
-
         # K SHORTEST PATH && SIMPLE PATH ARE SLOWER
         # path1 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[0]['path']
         # path2 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[1]['path']
@@ -291,6 +295,26 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
         #     path = path1
         # else:
         #     path = path2
+        ar_flag = False
+        depart_time = car[4]
+        if depart_time != previous_depart_time:
+            # new timeslice
+            ar_flag = True # start auto regressive
+            present_penalty = defaultdict(int) # defaultdict(<class 'int'>, {edge_id: penalty})
+            # 'Release' penalty of the timeslice 'queue_length' ago, subtract penalty value
+            release_penalty = ar_deque.popleft() # release_penalty = {edge_id: penalty, ...}
+            for edge_id, p_value in release_penalty.items():
+                new_length = graph.edge_data(edge_id)[1] - p_value
+                new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+                                 graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+                graph.update_edge_data(edge_id, new_edge_data)
+            if depart_time % 200 == 0:
+                print('Present depart_time=%s, release depart_time=%s penalty '
+                      %(depart_time, int(depart_time)-queue_length))
+
+        else:
+            # additive
+            present_penalty = ar_deque[-1] # present_penalty = {edge_id: penalty(already increment length), ...}
 
         # non preset car
         if car[-1] == 0:
@@ -302,7 +326,9 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
                     edge_id = graph.edge_by_node(path[i], path[i+1])
                     road_id = graph.edge_data(edge_id)[0]
                     new_length = graph.edge_data(edge_id)[1] + penaltyFactor # PENALTY
-                    new_edge_data = (road_id, new_length, graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+                    present_penalty[edge_id] += penaltyFactor # record in present_penalty
+                    new_edge_data = (road_id, new_length,
+                                     graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                     graph.update_edge_data(edge_id, new_edge_data)
 
                     # 4.11 update: punish other road of passing cross along the route
@@ -320,6 +346,7 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
                     # at this time, inc_edge_list = [5001, 5003]
                     for edge_id in inc_edge_list:
                         new_length = graph.edge_data(edge_id)[1] + penaltyFactor//2
+                        present_penalty[edge_id] += penaltyFactor//2  # record in present_penalty
                         new_edge_data = (graph.edge_data(edge_id)[0], new_length,
                                          graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                         graph.update_edge_data(edge_id, new_edge_data)
@@ -354,9 +381,10 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
                             oppo_inc_edge_id = edge_id
                             inc_edge_list.remove(oppo_inc_edge_id)
                             break
-                    # at this time, inc_edge_list = [5001, 5003]
+                    # at this time, inc_edge_list = [5001, 5003], punish them
                     for edge_id in inc_edge_list:
                         new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
+                        present_penalty[edge_id] += penaltyFactor//2  # record in present_penalty
                         new_edge_data = (graph.edge_data(edge_id)[0], new_length,
                                          graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                         graph.update_edge_data(edge_id, new_edge_data)
@@ -367,8 +395,19 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
                         if edge_id in graph.out_edges(previous_cross_id):
                             forward_edge = edge_id
                 new_length = graph.edge_data(forward_edge)[1] + penaltyFactor*2  # PENALTY
-                new_edge_data = (road_id, new_length, graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
+                present_penalty[forward_edge] += penaltyFactor*2  # record in present_penalty
+                new_edge_data = (graph.edge_data(forward_edge)[0], new_length,
+                                 graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
                 graph.update_edge_data(forward_edge, new_edge_data)
+
+        if ar_flag:
+            # ar_deque already popleft, so append present_penalty to the last to maintain ar_deque length
+            ar_deque.append(present_penalty)
+        else:
+            # update present penalty
+            ar_deque[-1] = present_penalty
+
+        previous_depart_time = car[4]
 
     # FOR DEBUG
     # print(road_count)
@@ -376,10 +415,9 @@ def findRouteForCar(graph, car_list, road_list, cross_list, preset_answer_list, 
 
 
 # generate answerInfo
-def generateAnswer(route_dict, car_list, interval):
+def generateAnswer(route_dict, car_list):
     answer_info = []
     # i = 0
-    # for i in range(len(car_list)):
     for car in car_list:
         if car[-1] == 1:
             # i += 1
@@ -398,7 +436,7 @@ def generateAnswer(route_dict, car_list, interval):
         #     car_depart_time = plan_time
         # elif speed == 8:
         #     car_depart_time = plan_time
-        # car_depart_time += i // interval
+        # car_depart_time += i // departure_rate
         # i += 1
         answer_info.append('(' + str(car_id) + ', ' + str(depart_time) + ', ' + str(route) + ')')
     return answer_info
