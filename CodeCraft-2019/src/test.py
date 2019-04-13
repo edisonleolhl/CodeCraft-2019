@@ -78,22 +78,23 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
     return car_list
 
 def main():
-    # algo = Algorithms()
-    # graph = Graph()
-    # for i in range(6):
-    #     graph.add_node(i+1)
-    # graph.add_edge(1, 2, 30)
-    # graph.add_edge(2, 1, 5)
-    # graph.add_edge(1, 3, 15)
-    # graph.add_edge(3, 2, 10)
-    # graph.add_edge(2, 5, 20)
-    # graph.add_edge(2, 6, 30)
-    # graph.add_edge(3, 6, 15)
-    # graph.add_edge(6, 5, 10)
-    # graph.add_edge(5, 4, 10)
-    # graph.add_edge(6, 4, 30)
+    algo = Algorithms()
+    graph = Graph()
+    for i in range(6):
+        graph.add_node(i+1)
+    # print(graph.node_list())
+    graph.add_edge(1, 2, 30)
+    graph.add_edge(2, 1, 5)
+    graph.add_edge(1, 3, 15)
+    graph.add_edge(3, 2, 10)
+    graph.add_edge(2, 5, 20)
+    graph.add_edge(2, 6, 30)
+    graph.add_edge(3, 6, 15)
+    graph.add_edge(6, 5, 10)
+    graph.add_edge(5, 4, 10)
+    graph.add_edge(6, 4, 30)
     # # graph.hide_edge(8)
-    # print(graph.out_nbrs(1))
+    print(graph.out_edges(2))
     # print(graph.out_nbrs(3))
     # print(graph.get_hops(4,5))
     # print(graph.get_hops(1,4))
@@ -107,23 +108,23 @@ def main():
     # print(algo.simple_path(graph, 3, 1))
     # print(searchRoute(graph))
 
-    car_path = sys.argv[1]
-    road_path = sys.argv[2]
-    cross_path = sys.argv[3]
-    preset_answer_path = sys.argv[4]
-    answer_path = sys.argv[5]
-
-    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
-
-    preset = [x for x in car_list if x[6] == 1]
-    priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
-    non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
-    priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
-    non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
-    priority_preset = sorted(priority_preset, key=lambda x: x[4])
-    for item in priority_preset:
-        print(item)
+    # car_path = sys.argv[1]
+    # road_path = sys.argv[2]
+    # cross_path = sys.argv[3]
+    # preset_answer_path = sys.argv[4]
+    # answer_path = sys.argv[5]
+    #
+    # car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    # car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    #
+    # preset = [x for x in car_list if x[6] == 1]
+    # priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
+    # non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
+    # priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
+    # non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
+    # priority_preset = sorted(priority_preset, key=lambda x: x[4])
+    # for item in priority_preset:
+    #     print(item)
 
 if __name__ == "__main__":
     main()
