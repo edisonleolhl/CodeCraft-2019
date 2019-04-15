@@ -68,7 +68,13 @@ def main():
 
     graph = Graph()
     graph = initMap(graph, road_list, cross_list)
-    route_dict = findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length)
+    changed_route_dict = changePresetRoute(car_list, road_list, preset_answer_list)
+    print('change preset car number: %s'%changed_route_dict.__len__())
+
+    changed_route_dict = {} # comment this to enable pre-decide preset car
+
+    route_dict = findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length, changed_route_dict)
+    print('find route number: %s'%route_dict.__len__())
 
     answer_info = generateAnswer(route_dict, car_list)
     writeFiles(answer_info, answer_path)
@@ -112,7 +118,7 @@ def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate
 
 # This func uses dynamic penalty, using Auto Regressive model.
 # Return: non-preset car's route
-def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length):
+def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length, changed_route_dict):
     # {car_id: [5001, 5002, ...]}
     preset_route_dict = {}
     for preset_answer in preset_answer_list:
@@ -128,20 +134,6 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
     for edge_id in graph.edge_list():
         road_id = graph.edge_data(edge_id)[0]
         edge2road_dict[edge_id] = road_id
-
-    # find key(s) by value in dictionary
-    def dicReverseLookup(dic, value):
-        keys = []
-        for k, v in dic.items():
-            if v == value:
-                keys.append(k)
-        return keys
-
-    def findCrossByTwoRoad(cross_list, road_id_1, road_id_2):
-        for cross in cross_list:
-            if road_id_1 in cross and road_id_2 in cross:
-                return cross[0]
-        return None
 
     # 4.12 update: Auto Regressive model !!!
     # Penalty becomes failure when the car get the destination, so 'release' the 'penalty' along the road!
@@ -215,87 +207,28 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         # non preset car
         if car[-1] == 0:
             path = algo.shortest_path(graph, car[1], car[2], car[3]) # path = [node1(cross1_id), node2, ...]
-            path_len = len(path)
-            if path_len > 1:
-                route = [] # route = [road_id, road_id, ...]
-                for i in range(path_len-1):
-                    edge_id = graph.edge_by_node(path[i], path[i+1])
-                    road_id = graph.edge_data(edge_id)[0]
-                    new_length = graph.edge_data(edge_id)[1] + penaltyFactor # PENALTY
-                    present_penalty[edge_id] += penaltyFactor # record in present_penalty
-                    new_edge_data = (road_id, new_length,
-                                     graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-                    graph.update_edge_data(edge_id, new_edge_data)
-
-                    # 4.11 update: punish other road of passing cross along the route
-                    # eg: four edge(road): 5000, 5001, 5002, 5003 going to the cross(node):100
-                    # edge_id (or road_id) = 5000, next edge_id = 5002,
-                    # Therefore, other road = 5001, 5003, PUNISH these two edges
-                    # Tips: doesn't punsh the destination cross's other road
-                    # (considering get to the destination refering to go_straight which has higher priority
-                    inc_edge_list = graph.inc_edges(path[i+1])
-                    inc_edge_list.remove(edge_id)
-                    if i != (path_len-2):
-                        oppo_inc_edge_id = graph.edge_by_node(path[i+2], path[i+1])
-                        if oppo_inc_edge_id is not None:
-                            inc_edge_list.remove(oppo_inc_edge_id)
-                    # at this time, inc_edge_list = [5001, 5003]
-                    for edge_id in inc_edge_list:
-                        new_length = graph.edge_data(edge_id)[1] + penaltyFactor//2
-                        present_penalty[edge_id] += penaltyFactor//2  # record in present_penalty
-                        new_edge_data = (graph.edge_data(edge_id)[0], new_length,
-                                         graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-                        graph.update_edge_data(edge_id, new_edge_data)
-
-                    # FOR DEBUG
-                    # road_count[road_id] += 1
-                    route.append(road_id)
+            if path.__len__() > 2: # don't punish only one road route
+                route, present_penalty = penalty(graph, present_penalty, penaltyFactor, path=path)
+            else:
+                road_id = graph.edge_by_node(path[0], path[1])
+                route = [road_id]
             route_dict[car[0]] = route
-        # preset car
-        else:
+        # preset car not changing route
+        elif car[0] not in changed_route_dict.keys():
             preset_route = preset_route_dict[car[0]] # preset_route = [road_id, road_id, ...]
-            # don't punish only the route with only one road
-            if preset_route.__len__() == 1:
-                continue
-            # preset_route' length must >= 2, so that codes below won't throw exceptions
-            for i, road_id in enumerate(preset_route):
-                edge_id_list = dicReverseLookup(edge2road_dict, road_id) # edge_id_list may including forward and backward edges
-                forward_edge = None
-                if i != (preset_route.__len__() - 1):
-                    next_road_id = preset_route[i + 1]
-                    next_cross_id = findCrossByTwoRoad(cross_list, road_id, next_road_id)
-                    for edge_id in edge_id_list:
-                        if edge_id in graph.inc_edges(next_cross_id):
-                            forward_edge = edge_id
-                    # punish other road of the passing cross along the preset_route
-                    inc_edge_list = graph.inc_edges(next_cross_id)
-                    inc_edge_list.remove(forward_edge)
-                    oppo_inc_edge_id = None
-                    oppo_inc_edge_id_list = dicReverseLookup(edge2road_dict, next_road_id) # may including forward and backward edges
-                    for edge_id in oppo_inc_edge_id_list:
-                        if edge_id in graph.inc_edges(next_cross_id):
-                            oppo_inc_edge_id = edge_id
-                            inc_edge_list.remove(oppo_inc_edge_id)
-                            break
-                    # at this time, inc_edge_list = [5001, 5003], punish them
-                    for edge_id in inc_edge_list:
-                        new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
-                        present_penalty[edge_id] += penaltyFactor//2  # record in present_penalty
-                        new_edge_data = (graph.edge_data(edge_id)[0], new_length,
-                                         graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-                        graph.update_edge_data(edge_id, new_edge_data)
-                else:
-                    previous_road_id = preset_route[i - 1]
-                    previous_cross_id = findCrossByTwoRoad(cross_list, previous_road_id, road_id)
-                    for edge_id in edge_id_list:
-                        if edge_id in graph.out_edges(previous_cross_id):
-                            forward_edge = edge_id
-                new_length = graph.edge_data(forward_edge)[1] + penaltyFactor*2  # PENALTY
-                present_penalty[forward_edge] += penaltyFactor*2  # record in present_penalty
-                new_edge_data = (graph.edge_data(forward_edge)[0], new_length,
-                                 graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
-                graph.update_edge_data(forward_edge, new_edge_data)
-
+            if preset_route.__len__() > 1: # don't punish only one road route
+                present_penalty = penalty(graph, present_penalty, penaltyFactor, edge2road_dict=edge2road_dict,
+                                             cross_list=cross_list, preset_route=preset_route)
+        # preset car changing route
+        else:
+            path = algo.shortest_path(graph, car[1], car[2], car[3]) # path = [node1(cross1_id), node2, ...]
+            if path.__len__() > 2: # don't punish only one road route
+                route, present_penalty = penalty(graph, present_penalty, penaltyFactor, path=path)
+            else:
+                road_id = graph.edge_by_node(path[0], path[1])
+                route = [road_id]
+            # print('preset car: %s planTime(=depart_time): %s change route to %s'%(car[0], car[4], route))
+            route_dict[car[0]] = route
         if ar_flag:
             # ar_deque.popleft()
             # ar_deque already popleft, so append present_penalty to the last to maintain ar_deque length
@@ -309,6 +242,123 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
     # FOR DEBUG
     # print(road_count)
     return route_dict
+
+# path for non-preset cars, path = [cross_id, cross_id, ...]
+# route for preset cars, route = [road_id, road_id, ...]
+def penalty(graph, present_penalty, penaltyFactor, edge2road_dict=None, cross_list=None, path=None, preset_route=None):
+    if path is not None:
+        route = []  # route = [road_id, road_id, ...]
+        for i in range(path.__len__() - 1):
+            edge_id = graph.edge_by_node(path[i], path[i + 1])
+            road_id = graph.edge_data(edge_id)[0]
+            new_length = graph.edge_data(edge_id)[1] + penaltyFactor  # PENALTY
+            present_penalty[edge_id] += penaltyFactor  # record in present_penalty
+            new_edge_data = (road_id, new_length,
+                             graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+            graph.update_edge_data(edge_id, new_edge_data)
+
+            # 4.11 update: punish other road of passing cross along the route
+            # eg: four edge(road): 5000, 5001, 5002, 5003 going to the cross(node):100
+            # car's present edge_id (or road_id) = 5000, next edge_id = 5002,
+            # Therefore, other road = 5001, 5003, PUNISH these two roads
+            # Tips: doesn't punish the destination cross's other road
+            # (considering get to the destination refering to go_straight which has higher priority
+            inc_edge_list = graph.inc_edges(path[i + 1])
+            inc_edge_list.remove(edge_id)
+            if i != (path.__len__() - 2):
+                oppo_inc_edge_id = graph.edge_by_node(path[i + 2], path[i + 1])
+                if oppo_inc_edge_id is not None:
+                    inc_edge_list.remove(oppo_inc_edge_id)
+            # at this time, inc_edge_list = [5001, 5003]
+            for edge_id in inc_edge_list:
+                new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
+                present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
+                new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+                                 graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+                graph.update_edge_data(edge_id, new_edge_data)
+            route.append(road_id)
+        return route, present_penalty
+    else:
+        for i, road_id in enumerate(preset_route):
+            edge_id_list = dicReverseLookup(edge2road_dict,
+                                            road_id)  # edge_id_list may including forward and backward edges
+            forward_edge = None
+            if i != (preset_route.__len__() - 1):
+                next_road_id = preset_route[i + 1]
+                next_cross_id = findCrossByTwoRoad(cross_list, road_id, next_road_id)
+                for edge_id in edge_id_list:
+                    if edge_id in graph.inc_edges(next_cross_id):
+                        forward_edge = edge_id
+                # punish other road of the passing cross along the preset_route
+                inc_edge_list = graph.inc_edges(next_cross_id)
+                inc_edge_list.remove(forward_edge)
+                oppo_inc_edge_id = None
+                oppo_inc_edge_id_list = dicReverseLookup(edge2road_dict,
+                                                         next_road_id)  # may including forward and backward edges
+                for edge_id in oppo_inc_edge_id_list:
+                    if edge_id in graph.inc_edges(next_cross_id):
+                        oppo_inc_edge_id = edge_id
+                        inc_edge_list.remove(oppo_inc_edge_id)
+                        break
+                # at this time, inc_edge_list = [5001, 5003], punish them
+                for edge_id in inc_edge_list:
+                    new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
+                    present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
+                    new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+                                     graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+                    graph.update_edge_data(edge_id, new_edge_data)
+            else:
+                previous_road_id = preset_route[i - 1]
+                previous_cross_id = findCrossByTwoRoad(cross_list, previous_road_id, road_id)
+                for edge_id in edge_id_list:
+                    if edge_id in graph.out_edges(previous_cross_id):
+                        forward_edge = edge_id
+            new_length = graph.edge_data(forward_edge)[1] + penaltyFactor * 2  # PENALTY
+            present_penalty[forward_edge] += penaltyFactor * 2  # record in present_penalty
+            new_edge_data = (graph.edge_data(forward_edge)[0], new_length,
+                             graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
+            graph.update_edge_data(forward_edge, new_edge_data)
+        return present_penalty
+
+# 10% of the preset car's route could be changed
+def changePresetRoute(car_list, road_list, preset_answer_list):
+    car_dict = {}
+    for car in car_list:
+        car_dict[car[0]] = car[1:]
+    road_dict = {}
+    for road in road_list:
+        road_dict[road[0]] = road[1:]
+    preset_answer_priority = []
+    for preset_answer in preset_answer_list:
+        car_id = preset_answer[0]
+        if car_dict[car_id][-2] == 1:
+            preset_answer_priority.append(preset_answer)
+    changed_cnt = 0
+    max_change = preset_answer_list.__len__() // 10
+    # list below are all default ascending !
+    preset_answer_depart_time = sorted(preset_answer_list, key=lambda x:x[1], reverse=True)
+    preset_answer_road_number = sorted(preset_answer_list, key=lambda x:len(x), reverse=True)
+    preset_answer_priority_depart_time = sorted(preset_answer_priority, key=lambda x:x[1], reverse=True)
+    preset_answer_priority_road_number = sorted(preset_answer_priority, key=lambda x:len(x), reverse=True)
+    changed_route_dict = {}
+    for answer in preset_answer_priority_road_number[:max_change]:
+        changed_route_dict[answer[0]] = answer[1:]
+    return changed_route_dict
+
+
+# find key(s) by value in dictionary
+def dicReverseLookup(dic, value):
+    keys = []
+    for k, v in dic.items():
+        if v == value:
+            keys.append(k)
+    return keys
+
+def findCrossByTwoRoad(cross_list, road_id_1, road_id_2):
+    for cross in cross_list:
+        if road_id_1 in cross and road_id_2 in cross:
+            return cross[0]
+    return None
 
 #
 # to read input file
@@ -384,26 +434,27 @@ def generateAnswer(route_dict, car_list):
     answer_info = []
     # i = 0
     for car in car_list:
-        if car[-1] == 1:
+        # if car[-1] == 1:
+        #     # i += 1
+        #     continue
+        if car[0] in route_dict.keys():
+            route = route_dict[car[0]]
+            route = str(route).strip('[').strip(']')
+            car_id = car[0]
+            plan_time = car[4]
+            # speed = car[-2]
+            depart_time = plan_time
+            # if speed == 2:
+            #     car_depart_time = plan_time
+            # elif speed == 4:
+            #     car_depart_time = plan_time
+            # elif speed == 6:
+            #     car_depart_time = plan_time
+            # elif speed == 8:
+            #     car_depart_time = plan_time
+            # car_depart_time += i // departure_rate
             # i += 1
-            continue
-        route = route_dict[car[0]]
-        route = str(route).strip('[').strip(']')
-        car_id = car[0]
-        plan_time = car[4]
-        # speed = car[-2]
-        depart_time = plan_time
-        # if speed == 2:
-        #     car_depart_time = plan_time
-        # elif speed == 4:
-        #     car_depart_time = plan_time
-        # elif speed == 6:
-        #     car_depart_time = plan_time
-        # elif speed == 8:
-        #     car_depart_time = plan_time
-        # car_depart_time += i // departure_rate
-        # i += 1
-        answer_info.append('(' + str(car_id) + ', ' + str(depart_time) + ', ' + str(route) + ')')
+            answer_info.append('(' + str(car_id) + ', ' + str(depart_time) + ', ' + str(route) + ')')
     return answer_info
 
 def generatePresetAnswer(preset_answer_path):

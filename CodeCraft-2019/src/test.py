@@ -1,6 +1,7 @@
 from Algorithms import Algorithms
 import sys
 from altgraph.Graph import Graph
+import numpy as np
 import random
 from altgraph import GraphError
 
@@ -119,6 +120,8 @@ def main():
 
     preset = [x for x in car_list if x[6] == 1]
     priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
+    pp100 = priority_preset[:100]
+    preset_answer_list100 = preset_answer_list[0:100]
     non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
     priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
     non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
@@ -129,6 +132,9 @@ def main():
     print('priority_non_preset number: %s'%priority_non_preset.__len__())
     print('non_priority_preset number: %s'%non_priority_preset.__len__())
     print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
+    pp = np.array(priority_preset)
+    print(pp)
+
 
 if __name__ == "__main__":
     main()

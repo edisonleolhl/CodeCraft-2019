@@ -653,7 +653,15 @@ class Scheduler(object):
         for crossId in cross_id_list:
             north, east, south, west = cross_dict[crossId]
             cross_dict[crossId] = Cross(crossId, north, east, south, west)
+
         count = 0
+
+        for i, line in enumerate(preset_answer_info):
+            carId = line[0]
+            depart_time = line[1]
+            route = [roadId for roadId in line[2:]]
+            car_dict[carId].scheduleInit(depart_time, route)
+            count += 1
 
         # presetOnly
         for i, line in enumerate(answer_info):
@@ -669,14 +677,8 @@ class Scheduler(object):
             count += 1
         # presetOnly
 
-        for i, line in enumerate(preset_answer_info):
-            carId = line[0]
-            depart_time = line[1]
-            route = [roadId for roadId in line[2:]]
-            car_dict[carId].scheduleInit(depart_time, route)
-            count += 1
-        car_distribution[0] = count
-        print("There are %d cars' route preinstalled" % count)
+        car_distribution[0] = carInfo.__len__()
+        print("There are %d cars' route preinstalled" % carInfo.__len__())
 
         for carId in car_id_list:
             cross_dict[car_dict[carId].from_].garageInit(car_dict[carId].depart_time, carId)
