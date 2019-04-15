@@ -31,17 +31,23 @@ def main():
     logging.info("answer_path is %s" % (answer_path))
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
 
-    penaltyFactor = 80
     queue_length = 100
 
-    if len(cross_list) == 141:
+    if len(cross_list) == 142:
         # for training map 1
-        departure_rate = 38
-        acc_departure_rate = 38
+        penaltyFactor = 80
+        departure_rate = 71
+        acc_departure_rate = 120
+        split_time = 400
+        last_d = 500
+
     else:
         # for training map 2
-        departure_rate = 36
-        acc_departure_rate = 80
+        penaltyFactor = 140
+        departure_rate = 48
+        acc_departure_rate = 52
+        split_time = 300
+        last_d = 500
 
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
     preset = [x for x in car_list if x[6] == 1]
@@ -53,7 +59,7 @@ def main():
     priority_non_preset = sorted(priority_non_preset, key=lambda x: x[4])
     non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
     car_list = priority_non_preset + non_priority_non_preset #
-    car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate)
+    car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d)
 
     # merge non-preset cars and preset cars into car_list
     car_list.extend(preset)
@@ -76,12 +82,8 @@ def main():
     time = scheduler.schedule()
     print('Current schedule time: %d' %time)
 
-def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate):
+def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d):
     non_preset_index = 0
-    split_time = 850
-    interval = 5 # preset car departure interval, for 2-map-training-1&2, interval = 5
-    max_token = departure_rate // (interval - 1)
-    previous_depart_time = None
     for i in range(car_list.__len__()):
         if car_list[i][-1] == 0:
             depart_time = car_list[i][4] # depart_time = planTime
@@ -98,30 +100,10 @@ def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate
                 else:
                     # depart_time = planTime
                     pass
-                # seperate the depart_time distribution with preset cars depart_time
-                # in 2-map-training-1&2, preset cars depart at 1 or 6
-                if depart_time % interval == 1:
-                    # if depart_time != previous_depart_time:
-                    #     previous_depart_time = depart_time
-                    #     slot_index = 0
-                    #     average_flag = False # token has been put into all slots averagely
-                    #     depart_time += slot_index + 1
-                    #     slot = [0 for x in range(interval - 1)]
-                    #     slot[slot_index] += 1
-                    # elif not average_flag:
-                    #     depart_time += slot_index + 1
-                    #     slot[slot_index] += 1
-                    #     if slot[slot_index] == max_token:
-                    #         slot_index += 1
-                    #     if slot_index == slot.__len__():
-                    #         average_flag = True
-                    # else:
-                    #     depart_time += interval//2
-                    depart_time += 2
 
             else:
                 depart_time = split_time + (non_preset_index-split_time*departure_rate) // acc_departure_rate
-                if i >= (car_list.__len__() - 100):
+                if i >= (car_list.__len__() - last_d):
                     depart_time -= 1
             car_list[i][4] = depart_time
             non_preset_index += 1
