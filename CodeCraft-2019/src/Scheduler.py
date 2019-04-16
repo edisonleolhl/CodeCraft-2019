@@ -366,8 +366,8 @@ class Cross(object):
                     self.finishCarNum += 1
                     self.update = True
                     allScheduleTime[0] += TIME[0] - present_car.planTime
-                    # if car_distribution[2] % 10 == 0:
-                    #     print('car:%s depart_time:%s schedule_time:%s'%(present_car.id, present_car.depart_time, TIME[0]-present_car.depart_time))
+                    if car_distribution[2] % 10 == 0:
+                        print('car:%s depart_time:%s schedule_time:%s'%(present_car.id, present_car.depart_time, TIME[0]-present_car.depart_time))
                     if present_car.priority == 1:
                         allPriScheduleTime[0] += TIME[0] - present_car.planTime
                         remainingPriCnt[0] -= 1
