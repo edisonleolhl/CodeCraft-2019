@@ -126,14 +126,14 @@ def main():
     priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
     non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
     priority_preset = sorted(priority_preset, key=lambda x: x[4])
-    # for item in priority_preset:
-    #     print(item)
+    for item in priority_preset:
+        print(item)
     print('priority_preset number: %s'%priority_preset.__len__())
     print('priority_non_preset number: %s'%priority_non_preset.__len__())
     print('non_priority_preset number: %s'%non_priority_preset.__len__())
     print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
-    pp = np.array(priority_preset)
-    print(pp)
+    # pp = np.array(priority_preset)
+    # print(pp)
 
 
 if __name__ == "__main__":

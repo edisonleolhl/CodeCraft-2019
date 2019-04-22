@@ -5,7 +5,7 @@ from altgraph.Graph import Graph
 from collections import deque
 from collections import defaultdict
 from Algorithms import Algorithms
-from Scheduler import *
+# from Scheduler import *
 
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
@@ -80,13 +80,13 @@ def main():
     writeFiles(answer_info, answer_path)
 
     # ATTENTION: comments code below before submit to online judgement
-    carInfo = open(car_path,  'r').read().split('\n')[1:]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    preset_answer_info = generatePresetAnswer(preset_answer_path)
-    scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    time = scheduler.schedule()
-    print('Current schedule time: %d' %time)
+    # carInfo = open(car_path,  'r').read().split('\n')[1:]
+    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    # preset_answer_info = generatePresetAnswer(preset_answer_path)
+    # scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    # time = scheduler.schedule()
+    # print('Current schedule time: %d' %time)
 
 def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d):
     non_preset_index = 0
