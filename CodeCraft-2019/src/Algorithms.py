@@ -9,7 +9,7 @@ class Algorithms(object):
         Initialization
         """
 
-    def dijkstra(self, graph, start, end=None, usedByYenKSP=False, car_speed=0):
+    def dijkstra(self, graph, start, end=None, usedByYenKSP=False, car_speed=0, usedByScheduler=False):
         """
         Dijkstra's algorithm for shortest paths
 
@@ -50,7 +50,10 @@ class Algorithms(object):
                 # vwLength = D[v] + graph.edge_data(edge_id)[1] / max_speed / graph.edge_data(edge_id)[3]
                 # vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[2] / graph.edge_data(edge_id)[3]
                 vwLength = D[v] + graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[3]
-
+                # vwLength = D[v] + graph.edge_data(edge_id)
+                if usedByScheduler:
+                    (id, length, speed, channel, num) = graph.edge_data(edge_id)
+                    vwLength = D[v] + (num + length) / channel
                 # vwLength = D[v] + graph.edge_data(edge_id)
                 if w in D:
                     if vwLength < D[w]:
@@ -74,7 +77,7 @@ class Algorithms(object):
             return (D, P)
 
 
-    def shortest_path(self, graph, start, end, car_speed=0):
+    def shortest_path(self, graph, start, end, car_speed=0, usedByScheduler=False):
         """
         Find a single shortest path from the *start* node to the *end* node.
         The input has the same conventions as dijkstra(). The output is a list of
@@ -83,7 +86,7 @@ class Algorithms(object):
         **Note that the distances must be stored in the edge data as numeric data**
         """
 
-        D, P = self.dijkstra(graph, start, end, False, car_speed)
+        D, P = self.dijkstra(graph, start, end, usedByYenKSP=False, car_speed=car_speed, usedByScheduler=usedByScheduler)
         Path = []
         if end not in P:
             return
@@ -139,7 +142,7 @@ class Algorithms(object):
                         #     continue
                         edges_removed.append([curr_path[i], curr_path[i + 1], cost])
 
-                path_spur = self.dijkstra(graph, node_spur, node_end, True, car_speed)
+                path_spur = self.dijkstra(graph, node_spur, node_end, usedByYenKSP=True, car_speed=car_speed)
 
                 if path_spur['path']:
                     path_total = path_root[:-1] + path_spur['path']

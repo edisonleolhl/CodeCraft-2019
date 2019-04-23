@@ -4,32 +4,8 @@ from altgraph.Graph import Graph
 import numpy as np
 import random
 from altgraph import GraphError
+from NodeadlockScheduler import *
 
-def searchRoute(graph):
-    algo = Algorithms()
-    route_list = {}
-    for start in graph.node_list():
-        for end in graph.node_list():
-            if start == end:
-                continue
-            # path1 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[0]['path']
-            # path2 = algo.ksp_yen(graph, car[1], car[2], 2, car[-2])[1]['path']
-            path1 = algo.shortest_path(graph, start, end)
-            path2 = algo.simple_path(graph, start, end)
-            if random.random()>0.01:
-                path = path1
-            else:
-                path = path2
-            if not path:
-                continue
-            if len(path) > 1 :
-                # route = []
-                # for i in range(len(path)-1):
-                #     # edge_id = graph.edge_by_node(path[i], path[i+1])
-                #     # road_id = graph.edge_data(edge_id)[0]
-                #     route.append(edge_id)
-                route_list[(start, end)] = path
-    return route_list
 
 def readFiles(car_path, road_path, cross_path, preset_answer_path):
     car_list = []
@@ -78,6 +54,22 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
             car_list[i][4] = preset_time_dict[car_list[i][0]]
     return car_list
 
+def generatePresetAnswer(preset_answer_path):
+    preset_answer_info = []
+    with open(preset_answer_path, 'r') as preset_answer_file:
+        for preset_answer in preset_answer_file.readlines():
+            if preset_answer.startswith('#'):
+                continue
+            preset_answer = preset_answer.replace(' ', '').replace('(', '').replace(')', '').strip().split(',')
+            preset_answer = [int(x) for x in preset_answer]
+            preset_answer_info.append(preset_answer)
+    return preset_answer_info
+
+def writeFiles(answerInfo, answer_path):
+    with open(answer_path, 'w') as answer_file:
+        for ans in answerInfo:
+            answer_file.write(ans + '\n')
+
 def main():
     # algo = Algorithms()
     # graph = Graph()
@@ -95,14 +87,19 @@ def main():
     # graph.add_edge(5, 4, 10)
     # graph.add_edge(6, 4, 30)
     # # # graph.hide_edge(8)
-    # print(graph.out_edges(2))
+    # # print(graph.out_edges(2))
     # print(graph.out_nbrs(3))
-    # print(graph.get_hops(4,5))
-    # print(graph.get_hops(1,4))
-    # print(graph.forw_bfs(4))
-    # print(graph.out_degree(1))
-    # print(graph.tail(1))
-    # print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 4, 5)))
+    # graph.hide_edge(6)
+    # # print(graph.get_hops(4,5))
+    # # print(graph.get_hops(1,4))
+    # # print(graph.forw_bfs(4))
+    # # print(graph.out_degree(1))
+    # # print(graph.tail(1))
+    # print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 3, 4)))
+    # graph.restore_edge(6)
+    # print(graph.out_nbrs(3))
+    # print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 3, 4)))
+
     # for node in graph.iterdfs(1, 4):
     #     print(node)
     # print(algo.ksp_yen(graph, 1, 4, 4))
@@ -126,8 +123,8 @@ def main():
     priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
     non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
     priority_preset = sorted(priority_preset, key=lambda x: x[4])
-    for item in priority_preset:
-        print(item)
+    # for item in priority_preset:
+    #     print(item)
     print('priority_preset number: %s'%priority_preset.__len__())
     print('priority_non_preset number: %s'%priority_non_preset.__len__())
     print('non_priority_preset number: %s'%non_priority_preset.__len__())
@@ -135,6 +132,15 @@ def main():
     # pp = np.array(priority_preset)
     # print(pp)
 
+    carInfo = open(car_path,  'r').read().split('\n')[1:] # [(61838, 1716, 800, 4, 72, 0, 0), ...]
+    roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    answer_info = open(answer_path, 'r').read().split('\n')[:] # note that answer file doesn't have comment line
+    preset_answer_info = generatePresetAnswer(preset_answer_path)
+    scheduler = NodeadlockScheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    time, new_answer_info = scheduler.schedule()
+    print('Current schedule time: %d' %time)
+    writeFiles(new_answer_info, '../3-map-training-2/answer_new_depart_time&route.txt')
 
 if __name__ == "__main__":
     main()

@@ -6,7 +6,7 @@ from collections import deque
 from collections import defaultdict
 from Algorithms import Algorithms
 # from Scheduler import *
-
+from NodeadlockScheduler import *
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -29,64 +29,102 @@ def main():
     logging.info("cross_path is %s" % (cross_path))
     logging.info("preset_answer_path is %s" % (preset_answer_path))
     logging.info("answer_path is %s" % (answer_path))
+
     car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    carInfo = open(car_path,  'r').read().split('\n')[1:] # ['(61838, 1716, 800, 4, 72, 0, 0)', ...]
+    roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    preset_answer_info = generatePresetAnswer(preset_answer_path)
+
+    graph = Graph()
+    graph = initMap(graph, road_list, cross_list)
 
     queue_length = 100
-
-    if len(cross_list) == 142:
-        # for training map 1
-        penaltyFactor = 80
-        departure_rate = 71
-        acc_departure_rate = 120
-        split_time = 400
-        last_d = 500
-
-    else:
-        # for training map 2
-        penaltyFactor = 140
-        departure_rate = 48
-        acc_departure_rate = 52
-        split_time = 300
-        last_d = 100
 
     # car_list = sorted(car_list, key=lambda x: x[4]) # first car scheduled first for non-preset cars
     preset = [x for x in car_list if x[6] == 1]
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    last_preset_depart_time = max([x[4] for x in preset])
+    split_time = (last_preset_depart_time + 100)//100*100
+    print("last_preset_depart_time: %s, split_time: %s"%(last_preset_depart_time, split_time))
 
     # priority cars depart first, then non-priority cars depart
     priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
     non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
     priority_non_preset = sorted(priority_non_preset, key=lambda x: x[4])
     non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
-    car_list = priority_non_preset + non_priority_non_preset #
-    car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d)
+    car_list = priority_non_preset + non_priority_non_preset
+    ori_car_list = car_list
 
-    # merge non-preset cars and preset cars into car_list
-    car_list.extend(preset)
-    # sort car_list in ascending depart_time, so that dynamic penalty works
-    car_list = sorted(car_list, key=lambda x: x[4])
+    if len(cross_list) == 142:
+        # for training map 1 cross=142
+        penaltyFactor = 80
+        departure_rate = 71
+        acc_departure_rate = 120
+        last_d = 500
 
-    graph = Graph()
-    graph = initMap(graph, road_list, cross_list)
-    changed_route_dict = changePresetRoute(car_list, road_list, preset_answer_list)
-    print('change preset car number: %s'%changed_route_dict.__len__())
+    else:
+        # for training map 2 cross=134
+        penaltyFactor = 140
+        departure_rate = 50
+        acc_departure_rate = 52
+        last_d = 100
 
-    changed_route_dict = {} # comment this to enable pre-decide preset car
+    loop = 3
+    JudgeTime_list = [999999 for x in range(loop)]
+    answer_info_list = [None for x in range(loop)]
+    garanteeFlag = False
+    for i in range(loop):
+        print("current departure rate: %s, acc departure rate: %s"%(departure_rate, acc_departure_rate))
+        car_list = ori_car_list
+        car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d)
+        # merge non-preset cars and preset cars into car_list
+        car_list.extend(preset)
+        # sort car_list in ascending depart_time, so that dynamic penalty works
+        car_list = sorted(car_list, key=lambda x: x[4])
 
-    route_dict = findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length, changed_route_dict)
-    print('find route number: %s'%route_dict.__len__())
+        # changed_route_dict = changePresetRoute(car_list, road_list, preset_answer_list)
+        # print('change preset car number: %s'%changed_route_dict.__len__())
+        changed_route_dict = {}  # comment this to enable pre-decide preset car
 
-    answer_info = generateAnswer(route_dict, car_list)
+        route_dict = findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor,
+                                     queue_length, changed_route_dict)
+        # print('find route number: %s' % route_dict.__len__())
+        answer_info = generateAnswer(route_dict, car_list)
+        if garanteeFlag is False:
+            scheduler = NodeadlockScheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+            isDeadLock, time, JudgeTime = scheduler.schedule()
+        else:
+            # last time, the depart rate is very slow, don't schedule to save time
+            JudgeTime_list[i] = 1
+            answer_info_list[i] = answer_info
+        if isDeadLock:
+            if time < split_time+100:
+                departure_rate -= 5
+            else:
+                departure_rate -= 1
+                acc_departure_rate -= 5
+
+            # garantee the last calculation have a feasible solution
+            if i == loop - 2 and answer_info_list == [None for x in range(loop)]:
+                if time < split_time + 100:
+                    departure_rate -= 10
+                    if departure_rate > 20:
+                        departure_rate = 20
+                acc_departure_rate -= 10
+                if acc_departure_rate > 25:
+                    acc_departure_rate = 25
+                garanteeFlag = True
+        else:
+            departure_rate += 3
+            acc_departure_rate += 3
+            JudgeTime_list[i] = JudgeTime
+            answer_info_list[i] = answer_info
+
+    i = JudgeTime_list.index(min(JudgeTime_list))
+    answer_info = answer_info_list[i]
     writeFiles(answer_info, answer_path)
-
-    # ATTENTION: comments code below before submit to online judgement
-    # carInfo = open(car_path,  'r').read().split('\n')[1:]
-    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    # preset_answer_info = generatePresetAnswer(preset_answer_path)
-    # scheduler = Scheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    # time = scheduler.schedule()
-    # print('Current schedule time: %d' %time)
+    print('Current schedule time: %d' %time)
 
 def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d):
     non_preset_index = 0
@@ -208,7 +246,7 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
 
         # non preset car
         if car[-1] == 0:
-            path = algo.shortest_path(graph, car[1], car[2], car[3]) # path = [node1(cross1_id), node2, ...]
+            path = algo.shortest_path(graph, car[1], car[2]) # path = [node1(cross1_id), node2, ...]
             if path.__len__() > 2: # don't punish only one road route
                 route, present_penalty = penalty(graph, present_penalty, penaltyFactor, path=path)
             else:
@@ -225,7 +263,7 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         #                                      cross_list=cross_list, preset_route=preset_route)
         # # preset car changing route
         # else:
-        #     path = algo.shortest_path(graph, car[1], car[2], car[3]) # path = [node1(cross1_id), node2, ...]
+        #     path = algo.shortest_path(graph, car[1], car[2]) # path = [node1(cross1_id), node2, ...]
         #     if path.__len__() > 2: # don't punish only one road route
         #         route, present_penalty = penalty(graph, present_penalty, penaltyFactor, path=path)
         #     else:
@@ -239,7 +277,7 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         # preset car
         else:
             preset_route = preset_route_dict[car[0]]
-            dij_path = algo.shortest_path(graph, car[1], car[2], car[3])
+            dij_path = algo.shortest_path(graph, car[1], car[2])
             dij_route_weight = 0
             for i in range(dij_path.__len__()-1):
                 edge_id = graph.edge_by_node(dij_path[i], dij_path[i+1])
