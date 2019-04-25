@@ -4,9 +4,12 @@ from altgraph import GraphError
 from altgraph.Graph import Graph
 from collections import deque
 from collections import defaultdict
+import copy
 from Algorithms import Algorithms
 # from Scheduler import *
 from NodeadlockScheduler import *
+
+
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename='../logs/CodeCraft-2019.log',
 #                     format='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
@@ -30,8 +33,8 @@ def main():
     logging.info("preset_answer_path is %s" % (preset_answer_path))
     logging.info("answer_path is %s" % (answer_path))
 
-    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    carInfo = open(car_path,  'r').read().split('\n')[1:] # ['(61838, 1716, 800, 4, 72, 0, 0)', ...]
+    car_list, road_list, cross_list, preset_answer_list = readFiles(car_path, road_path, cross_path, preset_answer_path)
+    carInfo = open(car_path, 'r').read().split('\n')[1:]  # ['(61838, 1716, 800, 4, 72, 0, 0)', ...]
     roadInfo = open(road_path, 'r').read().split('\n')[1:]
     crossInfo = open(cross_path, 'r').read().split('\n')[1:]
     preset_answer_info = generatePresetAnswer(preset_answer_path)
@@ -45,8 +48,8 @@ def main():
     preset = [x for x in car_list if x[6] == 1]
     car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
     last_preset_depart_time = max([x[4] for x in preset])
-    split_time = (last_preset_depart_time + 100)//100*100
-    print("last_preset_depart_time: %s, split_time: %s"%(last_preset_depart_time, split_time))
+    split_time = (last_preset_depart_time + 100) // 100 * 100
+    print("last_preset_depart_time: %s, split_time: %s" % (last_preset_depart_time, split_time))
 
     # priority cars depart first, then non-priority cars depart
     priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
@@ -54,38 +57,45 @@ def main():
     priority_non_preset = sorted(priority_non_preset, key=lambda x: x[4])
     non_priority_non_preset = sorted(non_priority_non_preset, key=lambda x: x[4])
     car_list = priority_non_preset + non_priority_non_preset
-    ori_car_list = car_list
+    ori_car_list = copy.deepcopy(car_list)
 
-    if len(cross_list) == 142:
+    if len(cross_list) > 140:
         # for training map 1 cross=142
         penaltyFactor = 80
-        departure_rate = 71
-        acc_departure_rate = 120
+        departure_rate = 56
+        acc_departure_rate = 60
         last_d = 500
 
     else:
         # for training map 2 cross=134
         penaltyFactor = 140
         departure_rate = 50
-        acc_departure_rate = 52
+        acc_departure_rate = 55
         last_d = 100
 
-    loop = 3
+
+    # TODO 3: to avoid 'program runs too long'
+    #  After realtime test, successful scheduling(including route calculation) cannot be over 2 times
+    loop = 4
     JudgeTime_list = [999999 for x in range(loop)]
     answer_info_list = [None for x in range(loop)]
     garanteeFlag = False
+    last_deadlock = True
+    step = 10
     for i in range(loop):
-        print("current departure rate: %s, acc departure rate: %s"%(departure_rate, acc_departure_rate))
-        car_list = ori_car_list
+        print("current departure rate: %s, acc departure rate: %s" % (departure_rate, acc_departure_rate))
+        # car_list = ori_car_list # This is totally wrong! because car_list refer to ori_car_list, not copy the value from ori_car_list !!!
+        car_list = copy.deepcopy(ori_car_list)
         car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d)
         # merge non-preset cars and preset cars into car_list
         car_list.extend(preset)
         # sort car_list in ascending depart_time, so that dynamic penalty works
         car_list = sorted(car_list, key=lambda x: x[4])
 
+        # TODO 2: static change(pre-decide) preset route, to enable this, not to comment line below
         # changed_route_dict = changePresetRoute(car_list, road_list, preset_answer_list)
-        # print('change preset car number: %s'%changed_route_dict.__len__())
-        changed_route_dict = {}  # comment this to enable pre-decide preset car
+        # print('change preset car number: %s' % changed_route_dict.__len__())
+        changed_route_dict = {}  # TODO 2: comment this to enable pre-decide preset car
 
         route_dict = findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor,
                                      queue_length, changed_route_dict)
@@ -94,59 +104,88 @@ def main():
         if garanteeFlag is False:
             scheduler = NodeadlockScheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
             isDeadLock, time, JudgeTime = scheduler.schedule()
+            print('current JudgeTime: %s, isDeadLock: %s\n' % (JudgeTime, isDeadLock))
         else:
             # last time, the depart rate is very slow, don't schedule to save time
             JudgeTime_list[i] = 1
             answer_info_list[i] = answer_info
+            break
         if isDeadLock:
-            if time < split_time+100:
-                departure_rate -= 5
+            if last_deadlock:
+                if i != 0 and answer_info_list.count(None) == loop:  # previous scheduling are all deadlock
+                    step = step * 2
+                    print('sequent deadlock, double step, current step: %s' % step)
+                elif i == 2 and answer_info_list.count(None) != loop:
+                    step = step // 2
+                departure_rate -= step
+                acc_departure_rate -= step
+                print('depart rate - step=%s, now departure rate=%s, acc departure rate=%s' % (
+                step, departure_rate, acc_departure_rate))
             else:
-                departure_rate -= 1
-                acc_departure_rate -= 5
-
-            # garantee the last calculation have a feasible solution
-            if i == loop - 2 and answer_info_list == [None for x in range(loop)]:
-                if time < split_time + 100:
-                    departure_rate -= 10
-                    if departure_rate > 20:
-                        departure_rate = 20
-                acc_departure_rate -= 10
-                if acc_departure_rate > 25:
-                    acc_departure_rate = 25
-                garanteeFlag = True
+                step = step // 2
+                departure_rate -= step
+                acc_departure_rate -= step
+                print(
+                    'last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s' % (
+                    step, departure_rate, acc_departure_rate))
+            last_deadlock = True
         else:
-            departure_rate += 3
-            acc_departure_rate += 3
             JudgeTime_list[i] = JudgeTime
             answer_info_list[i] = answer_info
+            if last_deadlock:
+                if i == 0:
+                    # first time is ok, then try a big departure rate to reduce running time and to get a deadlock(so that optimal is between first schedule and second schedule
+                    step = step * 2
+                    departure_rate += step
+                    acc_departure_rate += step
+                    print('first time ok, try big, +step=%s, departure rate=%s, acc departure rate=%s' % (
+                    step, departure_rate, acc_departure_rate))
+                else:
+                    step = step // 2
+                    departure_rate += step
+                    acc_departure_rate += step
+                    print(
+                        'last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
+                            step, departure_rate, acc_departure_rate))
+            last_deadlock = False
+        if i == loop - 3 and answer_info_list.count(None) == 2:
+            print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 2))
+            break
+        if i == loop - 2:
+            if answer_info_list.count(None) == loop:
+                # garantee the last calculation have a feasible solution
+                departure_rate = 20
+                acc_departure_rate = 25
+                garanteeFlag = True  # don't have to call scheduler program
+            elif answer_info_list.count(None) <= 2:
+                # no running time for the last scheduling, get the current optimal answer info
+                print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 1))
+                break
+        del graph
+        graph = Graph()
+        graph = initMap(graph, road_list, cross_list)
 
     i = JudgeTime_list.index(min(JudgeTime_list))
+    print('optimal judge time: %d' % min(JudgeTime_list))
     answer_info = answer_info_list[i]
     writeFiles(answer_info, answer_path)
-    print('Current schedule time: %d' %time)
+
 
 def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d):
     non_preset_index = 0
     for i in range(car_list.__len__()):
         if car_list[i][-1] == 0:
-            depart_time = car_list[i][4] # depart_time = planTime
+            depart_time = car_list[i][4]  # depart_time = planTime
             # print("No.%d car, No.%d non-preset car, depart_time=%d" %(i, non_preset_index, depart_time))
             # preset route may be overload among some roads, when preset cars finish trip, speed up departure
             if (non_preset_index // departure_rate) < split_time:
                 if non_preset_index // departure_rate >= depart_time:
-                    # if non_preset_index // departure_rate <= 100:
-                    #     if non_preset_index //int(departure_rate*1.1) >= depart_time:
-                    #         depart_time = non_preset_index // int(departure_rate*1.1)
-                    #     else:
-                    #         depart_time = non_preset_index // departure_rate
                     depart_time = non_preset_index // departure_rate
                 else:
                     # depart_time = planTime
                     pass
-
             else:
-                depart_time = split_time + (non_preset_index-split_time*departure_rate) // acc_departure_rate
+                depart_time = split_time + (non_preset_index - split_time * departure_rate) // acc_departure_rate
                 if i >= (car_list.__len__() - last_d):
                     depart_time -= 1
             car_list[i][4] = depart_time
@@ -154,9 +193,11 @@ def chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate
     print(car_list[i])
     return car_list
 
+
 # This func uses dynamic penalty, using Auto Regressive model.
-# Return: non-preset car's route
-def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length, changed_route_dict):
+# Return: car's route
+def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, penaltyFactor, queue_length,
+                    changed_route_dict):
     # {car_id: [5001, 5002, ...]}
     preset_route_dict = {}
     for preset_answer in preset_answer_list:
@@ -173,7 +214,8 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         road_id = graph.edge_data(edge_id)[0]
         edge2road_dict[edge_id] = road_id
 
-    max_change = preset_answer_list.__len__() // 10000
+    # TODO 2: dynamic preset route change
+    max_change = preset_answer_list.__len__() // 10
     changed_cnt = 0
 
     # 4.12 update: Auto Regressive model !!!
@@ -199,24 +241,26 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         ar_flag = False
         depart_time = car[4]
 
-        # punish severly for those cars whose depart_time is greater than 1000
+        # punish severely for those cars whose depart_time is greater than 1000
         if not penalty_flag and depart_time >= 1100:
-            penaltyFactor = int(penaltyFactor*1.5)
+            penaltyFactor = int(penaltyFactor * 1.5)
             penalty_flag = True
 
         if depart_time != previous_depart_time:
             # new timeslice
-            ar_flag = True # start auto regressive
-            present_penalty = defaultdict(int) # defaultdict(<class 'int'>, {edge_id: penalty})
+            ar_flag = True  # start auto regressive
+            present_penalty = defaultdict(int)  # defaultdict(<class 'int'>, {edge_id: penalty})
 
+            # TODO 1: AR model without factor
             # 'Release' penalty of the timeslice 'queue_length' ago, subtract penalty value
-            release_penalty = ar_deque.popleft() # release_penalty = {edge_id: penalty, ...}
+            release_penalty = ar_deque.popleft()  # release_penalty = {edge_id: penalty, ...}
             for edge_id, p_value in release_penalty.items():
                 new_length = graph.edge_data(edge_id)[1] - p_value
                 new_edge_data = (graph.edge_data(edge_id)[0], new_length,
                                  graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
                 graph.update_edge_data(edge_id, new_edge_data)
 
+            # TODO 1: AR model with factor
             # average factor 0.2 0.4 0.6 0.8 1.0
             # init all edges
             # for edge_id in graph.edge_list():
@@ -239,22 +283,31 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
 
             if depart_time % 200 == 0:
                 print('Present depart_time=%s, release depart_time=%s penalty '
-                      %(depart_time, int(depart_time)-queue_length))
+                      % (depart_time, int(depart_time) - queue_length))
         else:
             # additive
-            present_penalty = ar_deque[-1] # present_penalty = {edge_id: penalty(already increment length), ...}
+            present_penalty = ar_deque[-1]  # present_penalty = {edge_id: penalty(already increment length), ...}
 
         # non preset car
         if car[-1] == 0:
-            path = algo.shortest_path(graph, car[1], car[2]) # path = [node1(cross1_id), node2, ...]
-            if path.__len__() > 2: # don't punish only one road route
+            path = algo.shortest_path(graph, car[1], car[2])  # path = [node1(cross1_id), node2, ...]
+            if path.__len__() > 2:  # don't punish only one road route
                 route, present_penalty = penalty(graph, present_penalty, penaltyFactor, path=path)
             else:
                 road_id = graph.edge_by_node(path[0], path[1])
                 route = [road_id]
             route_dict[car[0]] = route
 
+        # ----------------------------DON'T change preset route------------------------------------
+        # TODO 2: choose one way in three choices
+        # else:
+        #     preset_route = preset_route_dict[car[0]]
+        #     if preset_route.__len__() > 1:  # don't punish only one road route
+        #         present_penalty = penalty(graph, present_penalty, penaltyFactor, edge2road_dict=edge2road_dict,
+        #                                   cross_list=cross_list, preset_route=preset_route)
+
         # ----------------------------static change preset route------------------------------------
+        # TODO 2: choose one way in three choices
         # preset car not changing route
         # elif car[0] not in changed_route_dict.keys():
         #     preset_route = preset_route_dict[car[0]] # preset_route = [road_id, road_id, ...]
@@ -269,12 +322,11 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         #     else:
         #         road_id = graph.edge_by_node(path[0], path[1])
         #         route = [road_id]
-        #     # print('preset car: %s planTime(=depart_time): %s change route to %s'%(car[0], car[4], route))
+        #     print('preset car: %s planTime(=depart_time): %s change route to %s'%(car[0], car[4], route))
         #     route_dict[car[0]] = route
 
-
         # -------------------------dynamic change preset route-----------------------------------
-        # preset car
+        # TODO 2: choose one way in three choices
         else:
             preset_route = preset_route_dict[car[0]]
             dij_path = algo.shortest_path(graph, car[1], car[2])
@@ -303,7 +355,7 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
                     preset_route_weight += graph.edge_data(forward_edge)[1] / graph.edge_data(forward_edge)[3]
             # check the route weight difference between dij path and preset path
             if (changed_cnt < max_change) and (preset_route_weight - dij_route_weight > 0.2 * dij_route_weight):
-                print('No.%s change preset car: %s route, preset_route_weight: %s, dij_route_weight: %s,'%(changed_cnt, car[0], preset_route_weight, dij_route_weight))
+                # print('No.%s change preset car: %s route, preset_route_weight: %s, dij_route_weight: %s,'%(changed_cnt, car[0], preset_route_weight, dij_route_weight))
                 route = []  # route = [road_id, road_id, ...]
                 for i in range(dij_path.__len__() - 1):
                     edge_id = graph.edge_by_node(dij_path[i], dij_path[i + 1])
@@ -371,7 +423,7 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
                     graph.update_edge_data(forward_edge, new_edge_data)
 
         if ar_flag:
-            # ar_deque.popleft()
+            # ar_deque.popleft() # TODO 1: not comment this line to enable AR model with factor
             # ar_deque already popleft, so append present_penalty to the last to maintain ar_deque length
             ar_deque.append(present_penalty)
         else:
@@ -382,9 +434,11 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
 
     return route_dict
 
+
 # path for non-preset cars, path = [cross_id, cross_id, ...]
 # route for preset cars, route = [road_id, road_id, ...]
 def penalty(graph, present_penalty, penaltyFactor, edge2road_dict=None, cross_list=None, path=None, preset_route=None):
+    # for non preset car
     if path is not None:
         route = []  # route = [road_id, road_id, ...]
         for i in range(path.__len__() - 1):
@@ -417,6 +471,7 @@ def penalty(graph, present_penalty, penaltyFactor, edge2road_dict=None, cross_li
                 graph.update_edge_data(edge_id, new_edge_data)
             route.append(road_id)
         return route, present_penalty
+    # for preset car
     else:
         for i, road_id in enumerate(preset_route):
             edge_id_list = dicReverseLookup(edge2road_dict,
@@ -459,6 +514,7 @@ def penalty(graph, present_penalty, penaltyFactor, edge2road_dict=None, cross_li
             graph.update_edge_data(forward_edge, new_edge_data)
         return present_penalty
 
+
 # 10% of the preset car's route could be changed
 def changePresetRoute(car_list, road_list, preset_answer_list):
     car_dict = {}
@@ -472,15 +528,14 @@ def changePresetRoute(car_list, road_list, preset_answer_list):
         car_id = preset_answer[0]
         if car_dict[car_id][-2] == 1:
             preset_answer_priority.append(preset_answer)
-    changed_cnt = 0
     max_change = preset_answer_list.__len__() // 10
     # list below are all default ascending !
-    preset_answer_depart_time = sorted(preset_answer_list, key=lambda x:x[1], reverse=True)
-    preset_answer_road_number = sorted(preset_answer_list, key=lambda x:len(x), reverse=True)
-    preset_answer_priority_depart_time = sorted(preset_answer_priority, key=lambda x:x[1], reverse=True)
-    preset_answer_priority_road_number = sorted(preset_answer_priority, key=lambda x:len(x), reverse=True)
+    # preset_answer_depart_time = sorted(preset_answer_list, key=lambda x:x[1], reverse=True)
+    # preset_answer_road_number = sorted(preset_answer_list, key=lambda x:len(x), reverse=True)
+    preset_answer_priority_depart_time = sorted(preset_answer_priority, key=lambda x: x[1], reverse=True)
+    # preset_answer_priority_road_number = sorted(preset_answer_priority, key=lambda x:len(x), reverse=True)
     changed_route_dict = {}
-    for answer in preset_answer_priority_road_number[:max_change]:
+    for answer in preset_answer_priority_depart_time[:max_change]:
         changed_route_dict[answer[0]] = answer[1:]
     return changed_route_dict
 
@@ -493,11 +548,13 @@ def dicReverseLookup(dic, value):
             keys.append(k)
     return keys
 
+
 def findCrossByTwoRoad(cross_list, road_id_1, road_id_2):
     for cross in cross_list:
         if road_id_1 in cross and road_id_2 in cross:
             return cross[0]
     return None
+
 
 #
 # to read input file
@@ -537,10 +594,12 @@ def readFiles(car_path, road_path, cross_path, preset_answer_path):
         for preset_answer_line in preset_answer_file.readlines():
             if preset_answer_line.startswith('#'):
                 continue
-            preset_answer_line = preset_answer_line.replace(' ', '').replace('(', '').replace(')', '').strip().split(',')
+            preset_answer_line = preset_answer_line.replace(' ', '').replace('(', '').replace(')', '').strip().split(
+                ',')
             preset_answer_line = [int(x) for x in preset_answer_line]
             preset_answer_list.append(preset_answer_line)
     return car_list, road_list, cross_list, preset_answer_list
+
 
 # init map using Graph class in altgraph module
 # can not guarantee the graph is connected,
@@ -558,6 +617,7 @@ def initMap(graph, road_list, cross_list):
             graph.add_edge(road[5], road[4], (int(road[0]), int(road[1]), int(road[2]), int(road[3])))
     return graph
 
+
 # 'planTime' of the preset car in car.txt will be replaced by the preset 'time' in presetAnswer.txt
 def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
     # {car_id: time}
@@ -569,32 +629,20 @@ def replaceDepartTimeForPresetCar(car_list, preset_answer_list):
             car_list[i][4] = preset_time_dict[car_list[i][0]]
     return car_list
 
+
 def generateAnswer(route_dict, car_list):
     answer_info = []
     # i = 0
     for car in car_list:
-        # if car[-1] == 1:
-        #     # i += 1
-        #     continue
         if car[0] in route_dict.keys():
             route = route_dict[car[0]]
             route = str(route).strip('[').strip(']')
             car_id = car[0]
             plan_time = car[4]
-            # speed = car[-2]
             depart_time = plan_time
-            # if speed == 2:
-            #     car_depart_time = plan_time
-            # elif speed == 4:
-            #     car_depart_time = plan_time
-            # elif speed == 6:
-            #     car_depart_time = plan_time
-            # elif speed == 8:
-            #     car_depart_time = plan_time
-            # car_depart_time += i // departure_rate
-            # i += 1
             answer_info.append('(' + str(car_id) + ', ' + str(depart_time) + ', ' + str(route) + ')')
     return answer_info
+
 
 def generatePresetAnswer(preset_answer_path):
     preset_answer_info = []
@@ -607,10 +655,12 @@ def generatePresetAnswer(preset_answer_path):
             preset_answer_info.append(preset_answer)
     return preset_answer_info
 
+
 def writeFiles(answerInfo, answer_path):
     with open(answer_path, 'w') as answer_file:
         for ans in answerInfo:
             answer_file.write(ans + '\n')
+
 
 if __name__ == "__main__":
     main()

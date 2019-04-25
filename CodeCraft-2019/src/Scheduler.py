@@ -686,9 +686,9 @@ class Scheduler(object):
         cross_id_list.sort()
 
     def step(self):
-        if TIME[0] % 200 == 0:
-            print("- time:%d, allScheduleTime:%d, priScheduleTime:%d, allPriScheduleTime:%d" % (
-                TIME[0], allScheduleTime[0], priScheduleTime[0], allPriScheduleTime[0]))
+        if TIME[0] % 100 == 0:
+            print("- time:%d, allScheduleTime:%d, priScheduleTime:%d, allPriScheduleTime:%d, remainingPriCnt:%d" % (
+                TIME[0], allScheduleTime[0], priScheduleTime[0], allPriScheduleTime[0], remainingPriCnt[0]))
             print("--- cars in garage: %d, on the road: %d, finish trip: %d" % (
                 car_distribution[0], car_distribution[1], car_distribution[2]))
         for crossId in cross_id_list:

@@ -71,6 +71,7 @@ def writeFiles(answerInfo, answer_path):
             answer_file.write(ans + '\n')
 
 def main():
+    # -------------------------------test altgraph module and dijkstra algorithm ---------------------------
     # algo = Algorithms()
     # graph = Graph()
     # for i in range(6):
@@ -99,48 +100,127 @@ def main():
     # graph.restore_edge(6)
     # print(graph.out_nbrs(3))
     # print('dijkstra shortest path is ' + str(algo.shortest_path(graph, 3, 4)))
-
     # for node in graph.iterdfs(1, 4):
     #     print(node)
     # print(algo.ksp_yen(graph, 1, 4, 4))
     # print(algo.simple_path(graph, 3, 1))
     # print(searchRoute(graph))
+    # -------------------------------test altgraph module and dijkstra algorithm ---------------------------
 
-    car_path = sys.argv[1]
-    road_path = sys.argv[2]
-    cross_path = sys.argv[3]
-    preset_answer_path = sys.argv[4]
-    answer_path = sys.argv[5]
+    # -------------------------------get map basic information ---------------------------
+    # car_path = sys.argv[1]
+    # road_path = sys.argv[2]
+    # cross_path = sys.argv[3]
+    # preset_answer_path = sys.argv[4]
+    # answer_path = sys.argv[5]
+    # #
+    # car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    # car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
     #
-    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    # preset = [x for x in car_list if x[6] == 1]
+    # priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
+    # pp100 = priority_preset[:100]
+    # preset_answer_list100 = preset_answer_list[0:100]
+    # non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
+    # priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
+    # non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
+    # priority_preset = sorted(priority_preset, key=lambda x: x[4])
+    # # for item in priority_preset:
+    # #     print(item)
+    # print('priority_preset last depart: %s'%priority_preset[-1][4])
+    # print('priority_preset number: %s'%priority_preset.__len__())
+    # print('priority_non_preset number: %s'%priority_non_preset.__len__())
+    # print('non_priority_preset number: %s'%non_priority_preset.__len__())
+    # print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
+    # # pp = np.array(priority_preset)
+    # # print(pp)
+    #
+    # carInfo = open(car_path,  'r').read().split('\n')[1:] # [(61838, 1716, 800, 4, 72, 0, 0), ...]
+    # roadInfo = open(road_path, 'r').read().split('\n')[1:]
+    # crossInfo = open(cross_path, 'r').read().split('\n')[1:]
+    # answer_info = open(answer_path, 'r').read().split('\n')[:] # note that answer file doesn't have comment line
+    # preset_answer_info = generatePresetAnswer(preset_answer_path)
+    # scheduler = NodeadlockScheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
+    # time, new_answer_info = scheduler.schedule()
+    # print('Current schedule time: %d' %time)
+    # -------------------------------get map basic information ---------------------------
 
-    preset = [x for x in car_list if x[6] == 1]
-    priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
-    pp100 = priority_preset[:100]
-    preset_answer_list100 = preset_answer_list[0:100]
-    non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
-    priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
-    non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
-    priority_preset = sorted(priority_preset, key=lambda x: x[4])
-    # for item in priority_preset:
-    #     print(item)
-    print('priority_preset number: %s'%priority_preset.__len__())
-    print('priority_non_preset number: %s'%priority_non_preset.__len__())
-    print('non_priority_preset number: %s'%non_priority_preset.__len__())
-    print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
-    # pp = np.array(priority_preset)
-    # print(pp)
 
-    carInfo = open(car_path,  'r').read().split('\n')[1:] # [(61838, 1716, 800, 4, 72, 0, 0), ...]
-    roadInfo = open(road_path, 'r').read().split('\n')[1:]
-    crossInfo = open(cross_path, 'r').read().split('\n')[1:]
-    answer_info = open(answer_path, 'r').read().split('\n')[:] # note that answer file doesn't have comment line
-    preset_answer_info = generatePresetAnswer(preset_answer_path)
-    scheduler = NodeadlockScheduler(carInfo, roadInfo, crossInfo, answer_info, preset_answer_info)
-    time, new_answer_info = scheduler.schedule()
-    print('Current schedule time: %d' %time)
-    writeFiles(new_answer_info, '../3-map-training-2/answer_new_depart_time&route.txt')
+
+    # -------------------------------How to decide departure rate and acc departure rate ---------------------------
+    loop = 4
+    JudgeTime_list = [999999 for x in range(loop)]
+    answer_info_list = [None for x in range(loop)]
+    garanteeFlag = False
+    last_deadlock = True
+    step = 10
+    departure_rate = 54
+    acc_departure_rate = 58
+    print('departure rate=%s, acc departure rate=%s'%(departure_rate, acc_departure_rate))
+    for i in range(loop):
+        if garanteeFlag is False:
+            print('start scheduling')
+            # isDeadLock, JudgeTime = (True, None) if random.random() > 0.5 else (False, random.random()*1000)
+            isDeadLock, JudgeTime = (True, None) if (departure_rate > 48 or acc_departure_rate > 52) else (False, 10000 / departure_rate)
+            # isDeadLock, JudgeTime = True, None
+            print('current JudgeTime: %s, isDeadLock: %s\n'%(JudgeTime, isDeadLock))
+        else:
+            # last time, the depart rate is very slow, don't schedule to save time
+            JudgeTime_list[i] = 1
+            answer_info_list[i] = (departure_rate, acc_departure_rate)
+            break
+        if isDeadLock:
+            if last_deadlock:
+                if i != 0 and answer_info_list.count(None) == loop: # previous scheduling are all deadlock
+                    step = step * 2
+                    print('sequent deadlock, double step, current step: %s' % step)
+                elif i == 2 and answer_info_list.count(None) != loop:
+                    step = step // 2
+                departure_rate -= step
+                acc_departure_rate -= step
+                print('depart rate - step=%s, now departure rate=%s, acc departure rate=%s'%(step,departure_rate, acc_departure_rate))
+
+            else:
+                step = step // 2
+                departure_rate -= step
+                acc_departure_rate -= step
+                print('last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s'%(step,departure_rate, acc_departure_rate))
+            last_deadlock = True
+        else:
+            JudgeTime_list[i] = JudgeTime
+            answer_info_list[i] = (departure_rate, acc_departure_rate)
+            if last_deadlock:
+                if i == 0:
+                    # first time is ok, then try a big departure rate to reduce running time and to get a deadlock(so that optimal is between first schedule and second schedule
+                    step = step * 2
+                    departure_rate += step
+                    acc_departure_rate += step
+                    print('first time ok, try big, +step=%s, departure rate=%s, acc departure rate=%s'%(step, departure_rate, acc_departure_rate))
+                else:
+                    step = step // 2
+                    departure_rate += step
+                    acc_departure_rate += step
+                    print('last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
+                    step, departure_rate, acc_departure_rate))
+            last_deadlock = False
+        if i == loop - 3 and answer_info_list.count(None) == 2:
+            print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 2))
+            break
+        if i == loop - 2:
+            if answer_info_list == [None for x in range(loop)]:
+                # garantee the last calculation have a feasible solution
+                departure_rate = 20
+                acc_departure_rate = 25
+                garanteeFlag = True  # don't have to call scheduler program
+                print('deadlock for first %s time, skip the last schedule'%(loop-1))
+            elif answer_info_list.count(None) <= 2:
+                # no running time for the last scheduling, get the current optimal answer info
+                print('runs ok 2 times in first %s time, skip the last schedule'%(loop-1))
+                break
+    i = JudgeTime_list.index(min(JudgeTime_list))
+    print('optimal index: %s'%i)
+    print('optimal depart rate: %s,%s'%answer_info_list[i])
+    # -------------------------------How to decide departure rate and acc departure rate ---------------------------
 
 if __name__ == "__main__":
     main()
