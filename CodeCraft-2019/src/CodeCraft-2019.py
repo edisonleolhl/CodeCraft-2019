@@ -62,15 +62,15 @@ def main():
     if len(cross_list) > 140:
         # for training map 1 cross=142
         penaltyFactor = 80
-        departure_rate = 56
-        acc_departure_rate = 60
+        departure_rate = 71
+        acc_departure_rate = 110
         last_d = 500
 
     else:
         # for training map 2 cross=134
         penaltyFactor = 140
-        departure_rate = 50
-        acc_departure_rate = 55
+        departure_rate = 48
+        acc_departure_rate = 52
         last_d = 100
 
 
