@@ -148,78 +148,60 @@ def main():
 
 
     # -------------------------------How to decide departure rate and acc departure rate ---------------------------
-    loop = 4
+    loop = 3
     JudgeTime_list = [999999 for x in range(loop)]
-    answer_info_list = [None for x in range(loop)]
-    garanteeFlag = False
+    answer_info_list = [(None, None) for x in range(loop)]
     last_deadlock = True
-    step = 10
-    departure_rate = 54
-    acc_departure_rate = 58
-    print('departure rate=%s, acc departure rate=%s'%(departure_rate, acc_departure_rate))
+    step = 20
+    departure_rate = 90
+    acc_departure_rate = 90
     for i in range(loop):
-        if garanteeFlag is False:
-            print('start scheduling')
-            # isDeadLock, JudgeTime = (True, None) if random.random() > 0.5 else (False, random.random()*1000)
-            isDeadLock, JudgeTime = (True, None) if (departure_rate > 48 or acc_departure_rate > 52) else (False, 10000 / departure_rate)
-            # isDeadLock, JudgeTime = True, None
-            print('current JudgeTime: %s, isDeadLock: %s\n'%(JudgeTime, isDeadLock))
-        else:
-            # last time, the depart rate is very slow, don't schedule to save time
-            JudgeTime_list[i] = 1
-            answer_info_list[i] = (departure_rate, acc_departure_rate)
-            break
+        print('\ncurrent departure rate=%s, acc departure rate=%s' % (departure_rate, acc_departure_rate))
+        print('start scheduling')
+        # isDeadLock, JudgeTime = (True, None) if random.random() > 0.5 else (False, random.random()*1000)
+        isDeadLock, JudgeTime = (True, None) if (departure_rate > 48 or acc_departure_rate > 52) else (False, 10000 / departure_rate)
+        print('current JudgeTime: %s, isDeadLock: %s' % (JudgeTime, isDeadLock))
         if isDeadLock:
             if last_deadlock:
-                if i != 0 and answer_info_list.count(None) == loop: # previous scheduling are all deadlock
-                    step = step * 2
-                    print('sequent deadlock, double step, current step: %s' % step)
-                elif i == 2 and answer_info_list.count(None) != loop:
-                    step = step // 2
                 departure_rate -= step
                 acc_departure_rate -= step
-                print('depart rate - step=%s, now departure rate=%s, acc departure rate=%s'%(step,departure_rate, acc_departure_rate))
-
             else:
                 step = step // 2
                 departure_rate -= step
                 acc_departure_rate -= step
-                print('last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s'%(step,departure_rate, acc_departure_rate))
+                print('last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s' % (step, departure_rate, acc_departure_rate))
             last_deadlock = True
         else:
             JudgeTime_list[i] = JudgeTime
             answer_info_list[i] = (departure_rate, acc_departure_rate)
             if last_deadlock:
                 if i == 0:
-                    # first time is ok, then try a big departure rate to reduce running time and to get a deadlock(so that optimal is between first schedule and second schedule
-                    step = step * 2
                     departure_rate += step
                     acc_departure_rate += step
-                    print('first time ok, try big, +step=%s, departure rate=%s, acc departure rate=%s'%(step, departure_rate, acc_departure_rate))
                 else:
                     step = step // 2
                     departure_rate += step
                     acc_departure_rate += step
-                    print('last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
-                    step, departure_rate, acc_departure_rate))
+                    print(
+                        'last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
+                            step, departure_rate, acc_departure_rate))
+            else:
+                departure_rate += step
+                acc_departure_rate += step
             last_deadlock = False
-        if i == loop - 3 and answer_info_list.count(None) == 2:
-            print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 2))
+        if i == loop - 2 and answer_info_list.count((None,None)) == 1:
+            # no running time for the last scheduling, get the current optimal answer info
+            print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 1))
             break
-        if i == loop - 2:
-            if answer_info_list == [None for x in range(loop)]:
-                # garantee the last calculation have a feasible solution
-                departure_rate = 20
-                acc_departure_rate = 25
-                garanteeFlag = True  # don't have to call scheduler program
-                print('deadlock for first %s time, skip the last schedule'%(loop-1))
-            elif answer_info_list.count(None) <= 2:
-                # no running time for the last scheduling, get the current optimal answer info
-                print('runs ok 2 times in first %s time, skip the last schedule'%(loop-1))
-                break
-    i = JudgeTime_list.index(min(JudgeTime_list))
-    print('optimal index: %s'%i)
-    print('optimal depart rate: %s,%s'%answer_info_list[i])
+    if JudgeTime_list.count(999999) == loop:
+        # garantee the last calculation have a feasible solution
+        departure_rate = 20
+        acc_departure_rate = 25
+        print('all deadlock, try a low one and skip the last schedule')
+    else:
+        i = JudgeTime_list.index(min(JudgeTime_list))
+        print('optimal index: %s'%i)
+        print('optimal depart rate: %s,%s'%answer_info_list[i])
     # -------------------------------How to decide departure rate and acc departure rate ---------------------------
 
 if __name__ == "__main__":
