@@ -1,11 +1,8 @@
 # -*- encoding=utf8 -*-
 import sys
-import numpy as np
 from altgraph.Graph import Graph
 from Algorithms import Algorithms
 algo = Algorithms()
-
-np.random.seed(951105)
 
 # 'list' object in Python is global, therefore use a single element list to record time
 TIME = [0]
@@ -693,10 +690,10 @@ class NodeadlockScheduler(object):
 
         self.max_change = self.max_change // 10
         self.priCnt = remainingPriCnt[0]
-        print('speedParams: %s' % speedParams)
-        print('planTimeParams: %s' % planTimeParams)
-        print('allCarDiffSrc: %s, priDiffSrc: %s' % (diffSrc[0].__len__(), diffSrc[1].__len__()))
-        print('allCarDiffDst: %s, priDiffDst: %s' % (diffDst[0].__len__(), diffDst[1].__len__()))
+        # print('speedParams: %s' % speedParams)
+        # print('planTimeParams: %s' % planTimeParams)
+        # print('allCarDiffSrc: %s, priDiffSrc: %s' % (diffSrc[0].__len__(), diffSrc[1].__len__()))
+        # print('allCarDiffDst: %s, priDiffDst: %s' % (diffDst[0].__len__(), diffDst[1].__len__()))
 
         factor[0] = 0.05 * round(car_dict.__len__() / remainingPriCnt[0], 5) + \
                     0.2375 * round(
@@ -715,7 +712,7 @@ class NodeadlockScheduler(object):
                     0.05 * round(diffSrc[0].__len__() / diffSrc[1].__len__(), 5) + \
                     0.05 * round(diffDst[0].__len__() / diffDst[1].__len__(), 5)
 
-        print('factor a = %.10f, b= %.10f' % (factor[0], factor[1]))
+        # print('factor a = %.10f, b= %.10f' % (factor[0], factor[1]))
 
         visitDone = {}
         for line in crossInfo:

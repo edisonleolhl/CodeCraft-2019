@@ -60,17 +60,17 @@ def main():
     ori_car_list = copy.deepcopy(car_list)
 
     if len(cross_list) > 140:
-        # for training map 1 cross=142
+        # for big map
         penaltyFactor = 80
-        departure_rate = 71
-        acc_departure_rate = 110
-        last_d = 500
+        departure_rate = 120
+        acc_departure_rate = 130
+        last_d = 100
 
     else:
-        # for training map 2 cross=134
+        # for small map
         penaltyFactor = 140
-        departure_rate = 50
-        acc_departure_rate = 50
+        departure_rate = 100
+        acc_departure_rate = 100
         last_d = 100
 
     # TODO 3: to avoid 'program runs too long'
@@ -79,7 +79,7 @@ def main():
     JudgeTime_list = [999999 for x in range(loop)]
     answer_info_list = [None for x in range(loop)]
     last_deadlock = True
-    step = 20
+    step = 30
     for i in range(loop):
         print('-----Start calculating route------')
         print("\ncurrent departure rate: %s, acc departure rate: %s" % (departure_rate, acc_departure_rate))
@@ -147,7 +147,7 @@ def main():
 
     # if deadlock for 3 times, get a low result to commit
     if answer_info_list.count(None) == loop:
-        departure_rate, acc_departure_rate = 20, 25
+        departure_rate, acc_departure_rate = 40, 50
         car_list = copy.deepcopy(ori_car_list)
         car_list = chooseDepartTimeForNonPresetCar(car_list, departure_rate, acc_departure_rate, split_time, last_d)
         # merge non-preset cars and preset cars into car_list
@@ -217,10 +217,10 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         ar_flag = False
         depart_time = car[4]
 
-        # punish severely for those cars whose depart_time is greater than 1000
-        if not penalty_flag and depart_time >= 1100:
-            penaltyFactor = int(penaltyFactor * 1.5)
-            penalty_flag = True
+        # punish severely for those cars whose depart_time is greater than ?
+        # if not penalty_flag and depart_time >= 700:
+        #     penaltyFactor = int(penaltyFactor * 1.5)
+        #     penalty_flag = True
 
         if depart_time != previous_depart_time:
             # new timeslice
@@ -304,60 +304,13 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         # -------------------------dynamic change preset route-----------------------------------
         # TODO 2: choose one way in three choices
         # else:
-        # preset_route = preset_route_dict[car[0]]
-        # dij_path = algo.shortest_path(graph, car[1], car[2])
-        # dij_route_weight = 0
-        # for i in range(dij_path.__len__()-1):
-        #     edge_id = graph.edge_by_node(dij_path[i], dij_path[i+1])
-        #     dij_route_weight += graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[3]
-        # preset_route_weight = 0
-        # for i, road_id in enumerate(preset_route):
-        #     edge_id_list = dicReverseLookup(edge2road_dict,
-        #                                     road_id)  # edge_id_list may including forward and backward edges
-        #     forward_edge = None
-        #     if i != (preset_route.__len__() - 1):
-        #         next_road_id = preset_route[i + 1]
-        #         next_cross_id = findCrossByTwoRoad(cross_list, road_id, next_road_id)
-        #         for edge_id in edge_id_list:
-        #             if edge_id in graph.inc_edges(next_cross_id):
-        #                 forward_edge = edge_id
-        #         preset_route_weight += graph.edge_data(forward_edge)[1] / graph.edge_data(forward_edge)[3]
-        #     else:
-        #         previous_road_id = preset_route[i - 1]
-        #         previous_cross_id = findCrossByTwoRoad(cross_list, previous_road_id, road_id)
-        #         for edge_id in edge_id_list:
-        #             if edge_id in graph.out_edges(previous_cross_id):
-        #                 forward_edge = edge_id
-        #         preset_route_weight += graph.edge_data(forward_edge)[1] / graph.edge_data(forward_edge)[3]
-        # # check the route weight difference between dij path and preset path
-        # if (changed_cnt < max_change) and (preset_route_weight - dij_route_weight > 0.2 * dij_route_weight):
-        #     # print('No.%s change preset car: %s route, preset_route_weight: %s, dij_route_weight: %s,'%(changed_cnt, car[0], preset_route_weight, dij_route_weight))
-        #     route = []  # route = [road_id, road_id, ...]
-        #     for i in range(dij_path.__len__() - 1):
-        #         edge_id = graph.edge_by_node(dij_path[i], dij_path[i + 1])
-        #         road_id = graph.edge_data(edge_id)[0]
-        #         new_length = graph.edge_data(edge_id)[1] + penaltyFactor  # PENALTY
-        #         present_penalty[edge_id] += penaltyFactor  # record in present_penalty
-        #         new_edge_data = (road_id, new_length,
-        #                          graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-        #         graph.update_edge_data(edge_id, new_edge_data)
-        #         inc_edge_list = graph.inc_edges(dij_path[i + 1])
-        #         inc_edge_list.remove(edge_id)
-        #         if i != (dij_path.__len__() - 2):
-        #             oppo_inc_edge_id = graph.edge_by_node(dij_path[i + 2], dij_path[i + 1])
-        #             if oppo_inc_edge_id is not None:
-        #                 inc_edge_list.remove(oppo_inc_edge_id)
-        #         # at this time, inc_edge_list = [5001, 5003]
-        #         for edge_id in inc_edge_list:
-        #             new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
-        #             present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
-        #             new_edge_data = (graph.edge_data(edge_id)[0], new_length,
-        #                              graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-        #             graph.update_edge_data(edge_id, new_edge_data)
-        #         route.append(road_id)
-        #     route_dict[car[0]] = route
-        #     changed_cnt += 1
-        # else:
+        #     preset_route = preset_route_dict[car[0]]
+        #     dij_path = algo.shortest_path(graph, car[1], car[2])
+        #     dij_route_weight = 0
+        #     for i in range(dij_path.__len__()-1):
+        #         edge_id = graph.edge_by_node(dij_path[i], dij_path[i+1])
+        #         dij_route_weight += graph.edge_data(edge_id)[1] / graph.edge_data(edge_id)[3]
+        #     preset_route_weight = 0
         #     for i, road_id in enumerate(preset_route):
         #         edge_id_list = dicReverseLookup(edge2road_dict,
         #                                         road_id)  # edge_id_list may including forward and backward edges
@@ -368,35 +321,82 @@ def findRouteForCar(graph, car_list, cross_list, road_list, preset_answer_list, 
         #             for edge_id in edge_id_list:
         #                 if edge_id in graph.inc_edges(next_cross_id):
         #                     forward_edge = edge_id
-        #             # punish other road of the passing cross along the preset_route
-        #             inc_edge_list = graph.inc_edges(next_cross_id)
-        #             inc_edge_list.remove(forward_edge)
-        #             oppo_inc_edge_id = None
-        #             oppo_inc_edge_id_list = dicReverseLookup(edge2road_dict,
-        #                                                      next_road_id)  # may including forward and backward edges
-        #             for edge_id in oppo_inc_edge_id_list:
-        #                 if edge_id in graph.inc_edges(next_cross_id):
-        #                     oppo_inc_edge_id = edge_id
-        #                     inc_edge_list.remove(oppo_inc_edge_id)
-        #                     break
-        #             # at this time, inc_edge_list = [5001, 5003], punish them
-        #             for edge_id in inc_edge_list:
-        #                 new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
-        #                 present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
-        #                 new_edge_data = (graph.edge_data(edge_id)[0], new_length,
-        #                                  graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
-        #                 graph.update_edge_data(edge_id, new_edge_data)
+        #             preset_route_weight += graph.edge_data(forward_edge)[1] / graph.edge_data(forward_edge)[3]
         #         else:
         #             previous_road_id = preset_route[i - 1]
         #             previous_cross_id = findCrossByTwoRoad(cross_list, previous_road_id, road_id)
         #             for edge_id in edge_id_list:
         #                 if edge_id in graph.out_edges(previous_cross_id):
         #                     forward_edge = edge_id
-        #         new_length = graph.edge_data(forward_edge)[1] + penaltyFactor * 2  # PENALTY
-        #         present_penalty[forward_edge] += penaltyFactor * 2  # record in present_penalty
-        #         new_edge_data = (graph.edge_data(forward_edge)[0], new_length,
-        #                          graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
-        #         graph.update_edge_data(forward_edge, new_edge_data)
+        #             preset_route_weight += graph.edge_data(forward_edge)[1] / graph.edge_data(forward_edge)[3]
+        #     # check the route weight difference between dij path and preset path
+        #     if (changed_cnt < max_change) and (preset_route_weight - dij_route_weight > 0.1 * dij_route_weight):
+        #         print('No.%s change preset car: %s route, preset_route_weight: %s, dij_route_weight: %s,'%(changed_cnt, car[0], preset_route_weight, dij_route_weight))
+        #         route = []  # route = [road_id, road_id, ...]
+        #         for i in range(dij_path.__len__() - 1):
+        #             edge_id = graph.edge_by_node(dij_path[i], dij_path[i + 1])
+        #             road_id = graph.edge_data(edge_id)[0]
+        #             new_length = graph.edge_data(edge_id)[1] + penaltyFactor  # PENALTY
+        #             present_penalty[edge_id] += penaltyFactor  # record in present_penalty
+        #             new_edge_data = (road_id, new_length,
+        #                              graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+        #             graph.update_edge_data(edge_id, new_edge_data)
+        #             inc_edge_list = graph.inc_edges(dij_path[i + 1])
+        #             inc_edge_list.remove(edge_id)
+        #             if i != (dij_path.__len__() - 2):
+        #                 oppo_inc_edge_id = graph.edge_by_node(dij_path[i + 2], dij_path[i + 1])
+        #                 if oppo_inc_edge_id is not None:
+        #                     inc_edge_list.remove(oppo_inc_edge_id)
+        #             # at this time, inc_edge_list = [5001, 5003]
+        #             for edge_id in inc_edge_list:
+        #                 new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
+        #                 present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
+        #                 new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+        #                                  graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+        #                 graph.update_edge_data(edge_id, new_edge_data)
+        #             route.append(road_id)
+        #         route_dict[car[0]] = route
+        #         changed_cnt += 1
+        #     else:
+        #         for i, road_id in enumerate(preset_route):
+        #             edge_id_list = dicReverseLookup(edge2road_dict,
+        #                                             road_id)  # edge_id_list may including forward and backward edges
+        #             forward_edge = None
+        #             if i != (preset_route.__len__() - 1):
+        #                 next_road_id = preset_route[i + 1]
+        #                 next_cross_id = findCrossByTwoRoad(cross_list, road_id, next_road_id)
+        #                 for edge_id in edge_id_list:
+        #                     if edge_id in graph.inc_edges(next_cross_id):
+        #                         forward_edge = edge_id
+        #                 # punish other road of the passing cross along the preset_route
+        #                 inc_edge_list = graph.inc_edges(next_cross_id)
+        #                 inc_edge_list.remove(forward_edge)
+        #                 oppo_inc_edge_id = None
+        #                 oppo_inc_edge_id_list = dicReverseLookup(edge2road_dict,
+        #                                                          next_road_id)  # may including forward and backward edges
+        #                 for edge_id in oppo_inc_edge_id_list:
+        #                     if edge_id in graph.inc_edges(next_cross_id):
+        #                         oppo_inc_edge_id = edge_id
+        #                         inc_edge_list.remove(oppo_inc_edge_id)
+        #                         break
+        #                 # at this time, inc_edge_list = [5001, 5003], punish them
+        #                 for edge_id in inc_edge_list:
+        #                     new_length = graph.edge_data(edge_id)[1] + penaltyFactor // 2
+        #                     present_penalty[edge_id] += penaltyFactor // 2  # record in present_penalty
+        #                     new_edge_data = (graph.edge_data(edge_id)[0], new_length,
+        #                                      graph.edge_data(edge_id)[2], graph.edge_data(edge_id)[3])
+        #                     graph.update_edge_data(edge_id, new_edge_data)
+        #             else:
+        #                 previous_road_id = preset_route[i - 1]
+        #                 previous_cross_id = findCrossByTwoRoad(cross_list, previous_road_id, road_id)
+        #                 for edge_id in edge_id_list:
+        #                     if edge_id in graph.out_edges(previous_cross_id):
+        #                         forward_edge = edge_id
+        #             new_length = graph.edge_data(forward_edge)[1] + penaltyFactor * 2  # PENALTY
+        #             present_penalty[forward_edge] += penaltyFactor * 2  # record in present_penalty
+        #             new_edge_data = (graph.edge_data(forward_edge)[0], new_length,
+        #                              graph.edge_data(forward_edge)[2], graph.edge_data(forward_edge)[3])
+        #             graph.update_edge_data(forward_edge, new_edge_data)
 
         if ar_flag:
             # ar_deque.popleft() # TODO 1: not comment this line to enable AR model with factor

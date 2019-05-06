@@ -108,32 +108,32 @@ def main():
     # -------------------------------test altgraph module and dijkstra algorithm ---------------------------
 
     # -------------------------------get map basic information ---------------------------
-    # car_path = sys.argv[1]
-    # road_path = sys.argv[2]
-    # cross_path = sys.argv[3]
-    # preset_answer_path = sys.argv[4]
-    # answer_path = sys.argv[5]
-    # #
-    # car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
-    # car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+    car_path = sys.argv[1]
+    road_path = sys.argv[2]
+    cross_path = sys.argv[3]
+    preset_answer_path = sys.argv[4]
+    answer_path = sys.argv[5]
     #
-    # preset = [x for x in car_list if x[6] == 1]
-    # priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
-    # pp100 = priority_preset[:100]
-    # preset_answer_list100 = preset_answer_list[0:100]
-    # non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
-    # priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
-    # non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
-    # priority_preset = sorted(priority_preset, key=lambda x: x[4])
-    # # for item in priority_preset:
-    # #     print(item)
-    # print('priority_preset last depart: %s'%priority_preset[-1][4])
-    # print('priority_preset number: %s'%priority_preset.__len__())
-    # print('priority_non_preset number: %s'%priority_non_preset.__len__())
-    # print('non_priority_preset number: %s'%non_priority_preset.__len__())
-    # print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
-    # # pp = np.array(priority_preset)
-    # # print(pp)
+    car_list, road_list, cross_list, preset_answer_list= readFiles(car_path, road_path, cross_path, preset_answer_path)
+    car_list = replaceDepartTimeForPresetCar(car_list, preset_answer_list)
+
+    preset = [x for x in car_list if x[6] == 1]
+    priority_preset = [x for x in car_list if x[5] == 1 and x[6] == 1]
+    pp100 = priority_preset[:100]
+    preset_answer_list100 = preset_answer_list[0:100]
+    non_priority_preset = [x for x in car_list if x[5] == 0 and x[6] == 1]
+    priority_non_preset = [x for x in car_list if x[5] == 1 and x[6] == 0]
+    non_priority_non_preset = [x for x in car_list if x[5] == 0 and x[6] == 0]
+    priority_preset = sorted(priority_preset, key=lambda x: x[4])
+    # for item in priority_preset:
+    #     print(item)
+    print('priority_preset last depart: %s'%priority_preset[-1][4])
+    print('priority_preset number: %s'%priority_preset.__len__())
+    print('priority_non_preset number: %s'%priority_non_preset.__len__())
+    print('non_priority_preset number: %s'%non_priority_preset.__len__())
+    print('non_priority_non_preset number: %s'%non_priority_non_preset.__len__())
+    # pp = np.array(priority_preset)
+    # print(pp)
     #
     # carInfo = open(car_path,  'r').read().split('\n')[1:] # [(61838, 1716, 800, 4, 72, 0, 0), ...]
     # roadInfo = open(road_path, 'r').read().split('\n')[1:]
@@ -148,60 +148,60 @@ def main():
 
 
     # -------------------------------How to decide departure rate and acc departure rate ---------------------------
-    loop = 3
-    JudgeTime_list = [999999 for x in range(loop)]
-    answer_info_list = [(None, None) for x in range(loop)]
-    last_deadlock = True
-    step = 20
-    departure_rate = 90
-    acc_departure_rate = 90
-    for i in range(loop):
-        print('\ncurrent departure rate=%s, acc departure rate=%s' % (departure_rate, acc_departure_rate))
-        print('start scheduling')
-        # isDeadLock, JudgeTime = (True, None) if random.random() > 0.5 else (False, random.random()*1000)
-        isDeadLock, JudgeTime = (True, None) if (departure_rate > 48 or acc_departure_rate > 52) else (False, 10000 / departure_rate)
-        print('current JudgeTime: %s, isDeadLock: %s' % (JudgeTime, isDeadLock))
-        if isDeadLock:
-            if last_deadlock:
-                departure_rate -= step
-                acc_departure_rate -= step
-            else:
-                step = step // 2
-                departure_rate -= step
-                acc_departure_rate -= step
-                print('last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s' % (step, departure_rate, acc_departure_rate))
-            last_deadlock = True
-        else:
-            JudgeTime_list[i] = JudgeTime
-            answer_info_list[i] = (departure_rate, acc_departure_rate)
-            if last_deadlock:
-                if i == 0:
-                    departure_rate += step
-                    acc_departure_rate += step
-                else:
-                    step = step // 2
-                    departure_rate += step
-                    acc_departure_rate += step
-                    print(
-                        'last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
-                            step, departure_rate, acc_departure_rate))
-            else:
-                departure_rate += step
-                acc_departure_rate += step
-            last_deadlock = False
-        if i == loop - 2 and answer_info_list.count((None,None)) == 1:
-            # no running time for the last scheduling, get the current optimal answer info
-            print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 1))
-            break
-    if JudgeTime_list.count(999999) == loop:
-        # garantee the last calculation have a feasible solution
-        departure_rate = 20
-        acc_departure_rate = 25
-        print('all deadlock, try a low one and skip the last schedule')
-    else:
-        i = JudgeTime_list.index(min(JudgeTime_list))
-        print('optimal index: %s'%i)
-        print('optimal depart rate: %s,%s'%answer_info_list[i])
+    # loop = 3
+    # JudgeTime_list = [999999 for x in range(loop)]
+    # answer_info_list = [(None, None) for x in range(loop)]
+    # last_deadlock = True
+    # step = 20
+    # departure_rate = 90
+    # acc_departure_rate = 90
+    # for i in range(loop):
+    #     print('\ncurrent departure rate=%s, acc departure rate=%s' % (departure_rate, acc_departure_rate))
+    #     print('start scheduling')
+    #     # isDeadLock, JudgeTime = (True, None) if random.random() > 0.5 else (False, random.random()*1000)
+    #     isDeadLock, JudgeTime = (True, None) if (departure_rate > 48 or acc_departure_rate > 52) else (False, 10000 / departure_rate)
+    #     print('current JudgeTime: %s, isDeadLock: %s' % (JudgeTime, isDeadLock))
+    #     if isDeadLock:
+    #         if last_deadlock:
+    #             departure_rate -= step
+    #             acc_departure_rate -= step
+    #         else:
+    #             step = step // 2
+    #             departure_rate -= step
+    #             acc_departure_rate -= step
+    #             print('last time ok, this time deadlock, step half to -%s, now departure rate=%s, acc departure rate=%s' % (step, departure_rate, acc_departure_rate))
+    #         last_deadlock = True
+    #     else:
+    #         JudgeTime_list[i] = JudgeTime
+    #         answer_info_list[i] = (departure_rate, acc_departure_rate)
+    #         if last_deadlock:
+    #             if i == 0:
+    #                 departure_rate += step
+    #                 acc_departure_rate += step
+    #             else:
+    #                 step = step // 2
+    #                 departure_rate += step
+    #                 acc_departure_rate += step
+    #                 print(
+    #                     'last time (true) deadlock, this time ok, step half to +%s, now departure rate=%s, acc departure rate=%s' % (
+    #                         step, departure_rate, acc_departure_rate))
+    #         else:
+    #             departure_rate += step
+    #             acc_departure_rate += step
+    #         last_deadlock = False
+    #     if i == loop - 2 and answer_info_list.count((None,None)) == 1:
+    #         # no running time for the last scheduling, get the current optimal answer info
+    #         print('runs ok 2 times in first %s time, skip the last schedule' % (loop - 1))
+    #         break
+    # if JudgeTime_list.count(999999) == loop:
+    #     # garantee the last calculation have a feasible solution
+    #     departure_rate = 20
+    #     acc_departure_rate = 25
+    #     print('all deadlock, try a low one and skip the last schedule')
+    # else:
+    #     i = JudgeTime_list.index(min(JudgeTime_list))
+    #     print('optimal index: %s'%i)
+    #     print('optimal depart rate: %s,%s'%answer_info_list[i])
     # -------------------------------How to decide departure rate and acc departure rate ---------------------------
 
 if __name__ == "__main__":
